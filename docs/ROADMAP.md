@@ -14,13 +14,17 @@ Phased delivery. Each phase is shippable — no half-built tiers in production.
 
 Goal: ship a landing page and the 1-scan-per-day anon tier. No login, no Stripe yet.
 
-- [ ] Hugo scaffold (`themes/public/`, matching admin repo's patterns)
-- [ ] Landing page, pricing page (as teaser — "Coming soon" on paid CTAs), FAQ
-- [ ] `/app` route — single scan form
-- [ ] Backend endpoint `POST /api/scan` with anonymous quota logic (IP-based `grading.anon_quota` table)
-- [ ] Ad slot in layout (placeholder, real ads in Phase 4)
-- [ ] `data-loader.js` + `api.js` ported from admin repo
-- [ ] Deploy to GH Pages behind a dev subdomain
+- [x] Hugo scaffold (`themes/public/`, matching admin repo's patterns)
+- [x] Landing page, pricing page (as teaser — "Coming soon" on paid CTAs), FAQ
+- [x] `/app` route — single scan form (wired to backend; awaits `POST /api/scan`)
+- [x] Ad slot in layout (placeholder, real ads in Phase 4)
+- [x] `data-loader.js` + `api.js` ported from admin repo
+- [x] Tier-class toggling on body (`tier.js`) — server-enforced gating shows through as UX
+- [x] Stub privacy + terms pages
+- [x] `.github/workflows/deploy.yml` GH Pages deploy (needs Actions vars/secrets populated before it'll work)
+- [ ] Backend endpoint `POST /api/scan` with anonymous quota logic (IP-based `grading.anon_quota` table) — **lives in slab-cracker-backend, not this repo**
+- [ ] Populate GH Actions `PAGES_BASE_URL` + Firebase / backend vars + secrets
+- [ ] Custom domain decision + DNS
 - [ ] Analytics (plausible or GA4)
 
 Exit criteria: anyone can land, run one scan, see the result, be blocked on the second.

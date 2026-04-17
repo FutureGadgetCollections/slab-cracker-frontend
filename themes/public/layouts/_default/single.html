@@ -1,0 +1,7 @@
+{{ define "main" }}
+<article class="container py-4" style="max-width: 720px;">
+  <h1 class="h3 mb-3">{{ .Title }}</h1>
+  <div class="text-muted small mb-4">{{ .Date.Format "January 2, 2006" }}</div>
+  {{ .Content }}
+</article>
+{{ end }}

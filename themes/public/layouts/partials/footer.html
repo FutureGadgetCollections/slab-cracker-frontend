@@ -1,0 +1,22 @@
+<footer class="mt-auto py-4 bg-white border-top">
+  <div class="container">
+    <div class="row g-3 align-items-center">
+      <div class="col-md-6">
+        <div class="fw-semibold text-primary">
+          <i class="bi bi-upc-scan me-1"></i>{{ .Site.Title }}
+        </div>
+        <div class="text-muted small">{{ .Site.Params.tagline }}</div>
+      </div>
+      <div class="col-md-6 text-md-end">
+        <a href="{{ "pricing/" | relURL }}" class="text-muted text-decoration-none me-3 small">Pricing</a>
+        <a href="{{ "faq/" | relURL }}" class="text-muted text-decoration-none me-3 small">FAQ</a>
+        <a href="{{ "privacy/" | relURL }}" class="text-muted text-decoration-none me-3 small">Privacy</a>
+        <a href="{{ "terms/" | relURL }}" class="text-muted text-decoration-none small">Terms</a>
+      </div>
+    </div>
+    <hr class="my-3">
+    <div class="text-muted small text-center">
+      &copy; {{ now.Year }} {{ .Site.Title }}. Not affiliated with PSA, BGS, or any grading company.
+    </div>
+  </div>
+</footer>

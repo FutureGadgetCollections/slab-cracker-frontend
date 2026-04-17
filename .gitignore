@@ -1,9 +1,9 @@
 # env file
 .env
 
-# Hugo build output
-public/
-resources/_gen/
+# Hugo build output (root-anchored so themes/public/ is NOT ignored)
+/public/
+/resources/_gen/
 .hugo_build.lock
 
 # Firebase / secrets

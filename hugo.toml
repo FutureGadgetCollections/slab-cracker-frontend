@@ -1,0 +1,60 @@
+baseURL = "/"
+languageCode = "en-us"
+title = "Slab Cracker"
+theme = "public"
+
+[params]
+  description = "Find PSA 9s worth re-submitting. Built for collectors, flippers, and dealers."
+  tagline = "Buy smart. Re-slab smarter."
+  backendURL = "http://localhost:8080"
+
+  # Firebase config — nested to match HUGO_PARAMS_FIREBASE_* env var mapping
+  [params.firebase.api]
+    key = ""
+  [params.firebase.auth]
+    domain = ""
+  [params.firebase.project]
+    id = ""
+  [params.firebase.storage]
+    bucket = ""
+  [params.firebase.messaging.sender]
+    id = ""
+  [params.firebase.app]
+    id = ""
+
+  # Stripe publishable key — safe for the browser
+  [params.stripe]
+    publishableKey = ""
+  [params.stripe.price]
+    basic   = ""
+    pro     = ""
+    basicAnnual = ""
+    proAnnual   = ""
+
+  # Static data sources (public read-only data)
+  [params.gcs.data]
+    bucket = ""
+  [params.github.data]
+    repo = ""
+
+[markup]
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
+
+[menu]
+  [[menu.main]]
+    identifier = "app"
+    name = "Scan"
+    url = "/app/"
+    weight = 10
+  [[menu.main]]
+    identifier = "pricing"
+    name = "Pricing"
+    url = "/pricing/"
+    weight = 20
+  [[menu.main]]
+    identifier = "faq"
+    name = "FAQ"
+    url = "/faq/"
+    weight = 30

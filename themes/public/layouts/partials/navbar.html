@@ -1,0 +1,45 @@
+<nav class="navbar navbar-expand-md navbar-light bg-white sticky-top shadow-sm border-bottom">
+  <div class="container">
+    <a class="navbar-brand fw-bold text-primary" href="{{ "" | relURL }}">
+      <i class="bi bi-upc-scan me-1"></i>{{ .Site.Title }}
+    </a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navMain">
+      <ul class="navbar-nav me-auto">
+        {{ range .Site.Menus.main }}
+        <li class="nav-item">
+          <a class="nav-link{{ if eq $.RelPermalink .URL }} active fw-semibold{{ end }}"
+             href="{{ .URL | relURL }}">{{ .Name }}</a>
+        </li>
+        {{ end }}
+      </ul>
+
+      <div class="d-flex align-items-center gap-2 ms-auto">
+        <!-- Tier badge — JS toggles visibility based on tier class on body -->
+        <span class="badge text-bg-light border tier-free-show">Free</span>
+        <span class="badge text-bg-primary tier-basic-show">Basic</span>
+        <span class="badge text-bg-warning text-dark tier-pro-show">Pro</span>
+
+        <span class="text-muted small d-none d-md-inline" id="nav-user-email"></span>
+
+        <button class="btn btn-sm btn-outline-secondary d-none" id="btn-account"
+                onclick="window.location.href='{{ "account/" | relURL }}'">
+          Account
+        </button>
+        <button class="btn btn-sm btn-outline-secondary d-none" id="btn-logout" onclick="authSignOut()">
+          Sign out
+        </button>
+        <button class="btn btn-sm btn-outline-primary d-none" id="btn-login" onclick="signInWithGoogle()">
+          Sign in
+        </button>
+        <a class="btn btn-sm btn-primary tier-free-anon-show tier-free-show" href="{{ "pricing/" | relURL }}">
+          Upgrade
+        </a>
+      </div>
+    </div>
+  </div>
+</nav>

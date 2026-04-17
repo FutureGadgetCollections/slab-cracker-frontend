@@ -1,0 +1,147 @@
+{{ define "main" }}
+<!-- Hero -->
+<section class="py-5 bg-white border-bottom">
+  <div class="container py-4 text-center">
+    <span class="badge rounded-pill text-bg-primary-subtle text-primary-emphasis mb-3 px-3 py-2">
+      <i class="bi bi-stars me-1"></i>Powered by ML image analysis
+    </span>
+    <h1 class="display-5 fw-bold mb-3">{{ .Site.Params.tagline }}</h1>
+    <p class="lead text-muted mx-auto mb-4" style="max-width: 640px;">
+      Drop in a PSA cert number and see whether it's a strong candidate for re-submission to a PSA 10. No guessing, no squinting at scans — just data.
+    </p>
+    <div class="d-flex justify-content-center gap-2 flex-wrap">
+      <a href="{{ "app/" | relURL }}" class="btn btn-primary btn-lg px-4">
+        <i class="bi bi-upc-scan me-1"></i>Try a free scan
+      </a>
+      <a href="{{ "pricing/" | relURL }}" class="btn btn-outline-secondary btn-lg px-4">
+        See pricing
+      </a>
+    </div>
+    <div class="text-muted small mt-3">
+      <span class="tier-free-anon-show">Anonymous visitors get 1 free scan per day — no signup required.</span>
+      <span class="tier-free-show">Signed in as a free user — unlimited scans.</span>
+      <span class="tier-basic-show">Signed in on Basic — ad-free, full premium features.</span>
+      <span class="tier-pro-show">Signed in on Pro — AI + databasing unlocked.</span>
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section class="py-5">
+  <div class="container">
+    <div class="text-center mb-4">
+      <h2 class="h3 fw-semibold">How it works</h2>
+      <p class="text-muted">Three steps from cert number to confidence score.</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-0">
+          <div class="card-body text-center p-4">
+            <div class="fs-1 text-primary mb-2"><i class="bi bi-1-circle"></i></div>
+            <h3 class="h5 fw-semibold">Enter a PSA cert number</h3>
+            <p class="text-muted mb-0 small">
+              Found a PSA 9 you might buy? Paste the cert. We fetch the official scans from PSA directly.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-0">
+          <div class="card-body text-center p-4">
+            <div class="fs-1 text-primary mb-2"><i class="bi bi-2-circle"></i></div>
+            <h3 class="h5 fw-semibold">ML compares to known 10s</h3>
+            <p class="text-muted mb-0 small">
+              A Siamese Network scores similarity against our reference set of PSA 10s and BGS Black Labels for the same card.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card h-100 shadow-sm border-0">
+          <div class="card-body text-center p-4">
+            <div class="fs-1 text-primary mb-2"><i class="bi bi-3-circle"></i></div>
+            <h3 class="h5 fw-semibold">Decide with confidence</h3>
+            <p class="text-muted mb-0 small">
+              Get a similarity score, a defect breakdown, and a verdict. Buy the strong candidates, pass on the rest.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Who it's for -->
+<section class="py-5 bg-white border-top border-bottom">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-6">
+        <h2 class="h3 fw-semibold mb-3">Built for collectors who take it seriously</h2>
+        <p class="text-muted">
+          PSA 10s often fetch 3–10x the price of a PSA 9 of the same card. The difference between a
+          9 and a 10 is usually millimeters of centering or a hairline of whitening. Slab Cracker
+          reads those signals in seconds.
+        </p>
+        <ul class="list-unstyled mt-3">
+          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Scan a listing before you bid</li>
+          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Batch scan your inventory</li>
+          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Track outcomes across submissions (Pro)</li>
+          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Export your scan history to CSV (Pro)</li>
+        </ul>
+      </div>
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <span class="badge text-bg-secondary">PSA 9</span>
+              <span class="font-monospace small text-muted">cert #12345678</span>
+            </div>
+            <div class="mb-2 d-flex justify-content-between">
+              <span class="small text-muted">Similarity to PSA 10 set</span>
+              <strong class="text-success">87%</strong>
+            </div>
+            <div class="progress mb-3" style="height:6px;">
+              <div class="progress-bar bg-success" style="width:87%"></div>
+            </div>
+            <div class="row g-2 text-center">
+              <div class="col-6 col-md-3">
+                <div class="small text-muted">Centering</div>
+                <div class="fw-semibold text-success">92%</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="small text-muted">Corners</div>
+                <div class="fw-semibold text-success">88%</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="small text-muted">Edges</div>
+                <div class="fw-semibold text-warning">76%</div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="small text-muted">Surface</div>
+                <div class="fw-semibold text-success">93%</div>
+              </div>
+            </div>
+            <hr>
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="text-muted small">Verdict</span>
+              <span class="badge bg-success">Strong candidate</span>
+            </div>
+            <div class="text-muted small mt-2">Example output — not a real cert.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-5 text-center">
+  <div class="container">
+    <h2 class="h3 fw-semibold mb-3">Ready to check a cert?</h2>
+    <p class="text-muted mb-4">Free tier: one scan per day, no signup. Sign up for unlimited.</p>
+    <a href="{{ "app/" | relURL }}" class="btn btn-primary btn-lg px-5">
+      <i class="bi bi-upc-scan me-1"></i>Try it now
+    </a>
+  </div>
+</section>
+{{ end }}

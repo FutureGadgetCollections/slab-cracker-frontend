@@ -1,0 +1,110 @@
+{{ define "main" }}
+<div class="container py-5">
+  <div class="text-center mb-5">
+    <h1 class="h2 fw-semibold">Pricing</h1>
+    <p class="text-muted lead">Start free. Upgrade when you're ready.</p>
+  </div>
+
+  <div class="row g-3 justify-content-center">
+    <!-- Free (no signup) -->
+    <div class="col-md-6 col-lg-3">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body p-4 d-flex flex-column">
+          <h2 class="h5 fw-semibold">Free</h2>
+          <div class="text-muted small mb-3">No signup required</div>
+          <div class="display-6 fw-bold">$0</div>
+          <div class="text-muted small mb-3">forever</div>
+          <ul class="list-unstyled small flex-grow-1 mb-4">
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>1 scan per day</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Full scan output</li>
+            <li class="mb-2 text-muted"><i class="bi bi-dash me-1"></i>Ads shown</li>
+            <li class="mb-2 text-muted"><i class="bi bi-dash me-1"></i>No scan history</li>
+          </ul>
+          <a href="{{ "app/" | relURL }}" class="btn btn-outline-secondary">Start scanning</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Free (account) -->
+    <div class="col-md-6 col-lg-3">
+      <div class="card h-100 border-0 shadow-sm">
+        <div class="card-body p-4 d-flex flex-column">
+          <h2 class="h5 fw-semibold">Free + Account</h2>
+          <div class="text-muted small mb-3">Sign up with Google</div>
+          <div class="display-6 fw-bold">$0</div>
+          <div class="text-muted small mb-3">forever</div>
+          <ul class="list-unstyled small flex-grow-1 mb-4">
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Unlimited scans</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Scan history (25 most recent)</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Share scans via link</li>
+            <li class="mb-2 text-muted"><i class="bi bi-dash me-1"></i>Ads shown</li>
+            <li class="mb-2 text-muted"><i class="bi bi-dash me-1"></i>Limited premium features</li>
+          </ul>
+          <button class="btn btn-outline-primary" onclick="signInWithGoogle()">Sign up free</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Basic -->
+    <div class="col-md-6 col-lg-3">
+      <div class="card h-100 border-primary shadow">
+        <div class="card-body p-4 d-flex flex-column position-relative">
+          <span class="badge text-bg-primary position-absolute top-0 start-50 translate-middle">Most popular</span>
+          <h2 class="h5 fw-semibold">Basic</h2>
+          <div class="text-muted small mb-3">Everything you need</div>
+          <div class="display-6 fw-bold">TBD</div>
+          <div class="text-muted small mb-3">/month</div>
+          <ul class="list-unstyled small flex-grow-1 mb-4">
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Everything in Free + Account</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i><strong>No ads</strong></li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Unlimited scan history</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Side-by-side reference comparison</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Defect heatmap overlay</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Batch scan (up to 10)</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Watchlist alerts</li>
+          </ul>
+          <button class="btn btn-primary" onclick="upgradeTo('basic')" disabled>Coming soon</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pro -->
+    <div class="col-md-6 col-lg-3">
+      <div class="card h-100 border-warning shadow-sm">
+        <div class="card-body p-4 d-flex flex-column">
+          <h2 class="h5 fw-semibold"><i class="bi bi-stars text-warning me-1"></i>Pro</h2>
+          <div class="text-muted small mb-3">AI + databasing</div>
+          <div class="display-6 fw-bold">TBD</div>
+          <div class="text-muted small mb-3">/month</div>
+          <ul class="list-unstyled small flex-grow-1 mb-4">
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Everything in Basic</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>AI narrative analysis</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Natural-language queries</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Re-submission probability</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>Portfolio + regrade tracking</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>CSV / JSON export</li>
+            <li class="mb-2"><i class="bi bi-check text-success me-1"></i>API access</li>
+          </ul>
+          <button class="btn btn-warning text-dark" onclick="upgradeTo('pro')" disabled>Coming soon</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="text-center mt-5">
+    <p class="text-muted small">
+      Pricing is not yet finalized. Annual plans with a discount will be available at launch.
+      <a href="{{ "faq/" | relURL }}">See FAQ</a> for more detail on what's in each tier.
+    </p>
+  </div>
+</div>
+{{ end }}
+
+{{ define "page-scripts" }}
+<script>
+  // Stubbed — Phase 3 wires up Stripe Checkout.
+  function upgradeTo(tier) {
+    showToast('Checkout is not yet live. Come back soon.', 'secondary');
+  }
+</script>
+{{ end }}

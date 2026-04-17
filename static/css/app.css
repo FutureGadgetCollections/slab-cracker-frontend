@@ -1,0 +1,67 @@
+/* ─── Typography ─────────────────────────────────────────── */
+body {
+  font-size: 0.9375rem;
+}
+
+/* ─── Cards ──────────────────────────────────────────────── */
+.card {
+  border-radius: 0.75rem;
+}
+
+/* ─── Buttons ────────────────────────────────────────────── */
+.btn {
+  border-radius: 0.5rem;
+}
+
+/* ─── Modals ─────────────────────────────────────────────── */
+.modal-content {
+  border-radius: 0.75rem;
+}
+
+/* ─── Tier visibility ────────────────────────────────────────
+   Elements with .tier-*-show are hidden by default; the body class
+   .tier-{free-anon,free,basic,pro} reveals the matching ones.
+   This is UX only. Real enforcement is server-side. */
+.tier-free-anon-show,
+.tier-free-show,
+.tier-basic-show,
+.tier-pro-show { display: none !important; }
+
+body.tier-free-anon .tier-free-anon-show { display: inline-block !important; }
+body.tier-free      .tier-free-show      { display: inline-block !important; }
+body.tier-basic     .tier-basic-show     { display: inline-block !important; }
+body.tier-pro       .tier-pro-show       { display: inline-block !important; }
+
+/* For block-level elements marked as tier-show, restore block display */
+div.tier-free-anon-show,
+div.tier-free-show,
+div.tier-basic-show,
+div.tier-pro-show,
+section.tier-free-anon-show,
+section.tier-free-show,
+section.tier-basic-show,
+section.tier-pro-show { }
+
+body.tier-free-anon div.tier-free-anon-show,
+body.tier-free-anon section.tier-free-anon-show,
+body.tier-free      div.tier-free-show,
+body.tier-free      section.tier-free-show,
+body.tier-basic     div.tier-basic-show,
+body.tier-basic     section.tier-basic-show,
+body.tier-pro       div.tier-pro-show,
+body.tier-pro       section.tier-pro-show { display: block !important; }
+
+/* ─── Ad slot ────────────────────────────────────────────── */
+.ad-slot {
+  border-top: 1px dashed #dee2e6;
+  background: #fffbe6;
+}
+
+/* ─── Spin animation ─────────────────────────────────────── */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin 0.75s linear infinite; }
+
+/* ─── Hero-style sections on the landing page ───────────── */
+main .display-5 {
+  letter-spacing: -0.02em;
+}

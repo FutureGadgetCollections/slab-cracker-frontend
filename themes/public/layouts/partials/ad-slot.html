@@ -1,0 +1,12 @@
+<!--
+  Ad slot — rendered for free tiers only. Hidden for tier-basic and tier-pro via CSS.
+  Phase 4 wires in a real ad network (Google AdSense or alternative).
+  For now this is a visible placeholder so layout spacing is realistic during dev.
+-->
+<div class="ad-slot bg-white border-top py-3 tier-free-anon-show tier-free-show">
+  <div class="container text-center text-muted small">
+    <i class="bi bi-megaphone me-1"></i>
+    Ad slot (free tier) — ads will render here in production. Upgrade to remove.
+    <a href="{{ "pricing/" | relURL }}" class="ms-2">See pricing</a>
+  </div>
+</div>

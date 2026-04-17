@@ -1,0 +1,8 @@
+name = "public"
+license = "GPL-3.0"
+description = "Slab Cracker consumer frontend theme — Bootstrap 5, Firebase Auth, Stripe-ready tier gating."
+homepage = "https://github.com/FutureGadgetCollections/slab-cracker-frontend"
+min_version = "0.110.0"
+
+[author]
+  name = "FutureGadgetCollections"

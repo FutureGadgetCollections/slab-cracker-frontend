@@ -1,0 +1,113 @@
+{{ define "main" }}
+<div class="container py-5" style="max-width: 720px;">
+  <h1 class="h2 fw-semibold mb-4">Frequently asked questions</h1>
+
+  <div class="accordion" id="faqAccordion">
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#q1">
+          What does Slab Cracker actually do?
+        </button>
+      </h2>
+      <div id="q1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+        <div class="accordion-body text-muted">
+          You give us a PSA cert number. We fetch the official scans from PSA, compare them to a
+          reference set of PSA 10s and BGS Black Labels for the same card using an image similarity
+          model, and return a score plus a defect breakdown. Use it to decide whether a PSA 9 is a
+          strong candidate to re-submit for a higher grade.
+        </div>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q2">
+          Is this affiliated with PSA?
+        </button>
+      </h2>
+      <div id="q2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+        <div class="accordion-body text-muted">
+          No. We're an independent tool that uses PSA's public cert verification images. We have no
+          relationship with PSA, BGS, CGC, or any other grading company.
+        </div>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q3">
+          How accurate is the prediction?
+        </button>
+      </h2>
+      <div id="q3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+        <div class="accordion-body text-muted">
+          Image similarity gives you an evidence-backed signal, not a guarantee. The model compares
+          defect indicators (centering, corners, edges, surface) that grading companies look at.
+          It can't see through the slab — a card with a defect hidden by a label bar will look better
+          than it is. Use it as one input, not the whole decision.
+        </div>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q4">
+          Why the 1 scan / day limit on the free tier?
+        </button>
+      </h2>
+      <div id="q4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+        <div class="accordion-body text-muted">
+          Fetching a scan from PSA and running the ML model costs us compute. The 1/day free tier
+          lets anyone try the full product without signing up — we just can't hand that out
+          unlimited. Signing up for a free account removes the daily limit.
+        </div>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q5">
+          Can I cancel any time?
+        </button>
+      </h2>
+      <div id="q5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+        <div class="accordion-body text-muted">
+          Yes. Paid plans cancel instantly through the Stripe customer portal. You keep access
+          through the end of your current billing period, then downgrade to the free tier.
+        </div>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q6">
+          What counts as a "premium feature"?
+        </button>
+      </h2>
+      <div id="q6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+        <div class="accordion-body text-muted">
+          Things like unlimited scan history, batch scanning, side-by-side reference comparison,
+          defect heatmap overlays, and watchlist alerts. Free-with-account gets a limited subset;
+          Basic and Pro get the full set. AI-powered analysis and databasing features (portfolio,
+          API access, CSV export) are Pro only.
+        </div>
+      </div>
+    </div>
+
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#q7">
+          Do you store my scan data?
+        </button>
+      </h2>
+      <div id="q7" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+        <div class="accordion-body text-muted">
+          For signed-in users, yes — so you can see your scan history. For anonymous free scans,
+          we store the cert number, the result, and a hash of your IP to enforce the daily limit,
+          nothing more.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{{ end }}

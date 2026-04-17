@@ -1,0 +1,164 @@
+{{ define "main" }}
+<div class="container py-4" style="max-width: 820px;">
+  <div class="text-center mb-4">
+    <h1 class="h3 fw-semibold">Scan a PSA cert</h1>
+    <p class="text-muted">Enter the cert number exactly as printed on the slab.</p>
+  </div>
+
+  <!-- Quota banner — shown when anon user has used today's scan -->
+  <div id="quota-banner" class="alert alert-warning d-none">
+    <i class="bi bi-clock me-1"></i>
+    <strong>You've used today's free scan.</strong>
+    <a href="#" onclick="signInWithGoogle(); return false;">Sign up</a> for unlimited scans,
+    or <a href="{{ "pricing/" | relURL }}">upgrade</a> to remove ads.
+  </div>
+
+  <div class="card shadow-sm border-0">
+    <div class="card-body p-4">
+      <form id="scan-form" onsubmit="runScan(event)">
+        <label for="cert-input" class="form-label fw-medium small">PSA cert number</label>
+        <div class="input-group input-group-lg">
+          <input type="text" class="form-control font-monospace" id="cert-input"
+                 placeholder="12345678" pattern="[0-9]{7,10}" required
+                 inputmode="numeric" autocomplete="off">
+          <button class="btn btn-primary" type="submit" id="scan-btn">
+            <i class="bi bi-upc-scan me-1"></i>Scan
+          </button>
+        </div>
+        <div class="form-text">Front and back are fetched automatically from PSA.</div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Result area -->
+  <div id="scan-loading" class="text-center py-5 d-none">
+    <div class="spinner-border text-primary"></div>
+    <p class="text-muted small mt-2">Fetching scans and running analysis…</p>
+  </div>
+
+  <div id="scan-error" class="alert alert-danger d-none mt-4"></div>
+
+  <div id="scan-result" class="card shadow-sm border-0 mt-4 d-none">
+    <div class="card-body p-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <span class="badge text-bg-secondary" id="result-grade">PSA 9</span>
+        <span class="font-monospace small text-muted" id="result-cert"></span>
+      </div>
+      <div class="mb-2 d-flex justify-content-between">
+        <span class="small text-muted">Similarity to PSA 10 set</span>
+        <strong id="result-similarity-pct">—</strong>
+      </div>
+      <div class="progress mb-3" style="height:8px;">
+        <div id="result-similarity-bar" class="progress-bar" style="width:0%"></div>
+      </div>
+      <div class="row g-2 text-center" id="result-defects">
+        <!-- Populated by JS -->
+      </div>
+      <hr>
+      <div class="d-flex justify-content-between align-items-center">
+        <span class="text-muted small">Verdict</span>
+        <span id="result-verdict" class="badge">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pro-tier AI analysis upsell -->
+  <div class="card shadow-sm border-0 mt-3 d-none tier-free-anon-show tier-free-show tier-basic-show" id="ai-upsell">
+    <div class="card-body p-4 text-center">
+      <i class="bi bi-stars fs-3 text-warning"></i>
+      <h3 class="h6 fw-semibold mt-2">AI analysis is a Pro feature</h3>
+      <p class="text-muted small mb-3">Get a natural-language breakdown of why this card scored what it did.</p>
+      <a href="{{ "pricing/" | relURL }}" class="btn btn-sm btn-warning">Upgrade to Pro</a>
+    </div>
+  </div>
+
+  <!-- Pro-only AI analysis (populated when result comes back) -->
+  <div class="card shadow-sm border-0 mt-3 d-none tier-pro-show" id="ai-analysis">
+    <div class="card-header bg-white border-0 fw-semibold">
+      <i class="bi bi-stars text-warning me-1"></i>AI analysis
+    </div>
+    <div class="card-body" id="ai-analysis-body">
+      <!-- Filled by JS once result comes back -->
+    </div>
+  </div>
+</div>
+{{ end }}
+
+{{ define "page-scripts" }}
+<script>
+  async function runScan(event) {
+    event.preventDefault();
+    const cert = document.getElementById('cert-input').value.trim();
+    if (!cert) return;
+
+    const btn = document.getElementById('scan-btn');
+    btn.disabled = true;
+
+    document.getElementById('scan-error').classList.add('d-none');
+    document.getElementById('scan-result').classList.add('d-none');
+    document.getElementById('quota-banner').classList.add('d-none');
+    document.getElementById('ai-analysis').classList.add('d-none');
+    document.getElementById('ai-upsell').classList.add('d-none');
+    document.getElementById('scan-loading').classList.remove('d-none');
+
+    try {
+      const result = await api('POST', '/api/scan', { cert_number: cert });
+      renderResult(result);
+    } catch (e) {
+      if (e.status === 429) {
+        document.getElementById('quota-banner').classList.remove('d-none');
+      } else {
+        const errEl = document.getElementById('scan-error');
+        errEl.textContent = 'Scan failed: ' + e.message;
+        errEl.classList.remove('d-none');
+      }
+    } finally {
+      btn.disabled = false;
+      document.getElementById('scan-loading').classList.add('d-none');
+    }
+  }
+
+  function renderResult(r) {
+    document.getElementById('result-cert').textContent = '#' + r.cert_number;
+    document.getElementById('result-grade').textContent = 'PSA ' + (r.grade || '?');
+
+    const pct = Math.round((r.similarity || 0) * 100);
+    document.getElementById('result-similarity-pct').textContent = pct + '%';
+    const bar = document.getElementById('result-similarity-bar');
+    bar.style.width = pct + '%';
+    bar.className = 'progress-bar ' + (pct >= 80 ? 'bg-success' : pct >= 60 ? 'bg-warning' : 'bg-danger');
+
+    const defects = r.defects || {};
+    const defectEntries = [
+      ['Centering', defects.centering],
+      ['Corners',   defects.corners],
+      ['Edges',     defects.edges],
+      ['Surface',   defects.surface],
+    ];
+    document.getElementById('result-defects').innerHTML = defectEntries.map(([label, val]) => {
+      const p = val != null ? Math.round(val * 100) : null;
+      const color = p == null ? 'text-muted' : p >= 80 ? 'text-success' : p >= 60 ? 'text-warning' : 'text-danger';
+      return `
+        <div class="col-6 col-md-3">
+          <div class="small text-muted">${label}</div>
+          <div class="fw-semibold ${color}">${p == null ? '—' : p + '%'}</div>
+        </div>`;
+    }).join('');
+
+    const verdictEl = document.getElementById('result-verdict');
+    if (pct >= 80) { verdictEl.textContent = 'Strong candidate'; verdictEl.className = 'badge bg-success'; }
+    else if (pct >= 60) { verdictEl.textContent = 'Maybe'; verdictEl.className = 'badge bg-warning text-dark'; }
+    else { verdictEl.textContent = 'Skip'; verdictEl.className = 'badge bg-danger'; }
+
+    document.getElementById('scan-result').classList.remove('d-none');
+
+    const tier = getCurrentTier();
+    if (tier === 'pro' && r.ai_analysis) {
+      document.getElementById('ai-analysis-body').textContent = r.ai_analysis;
+      document.getElementById('ai-analysis').classList.remove('d-none');
+    } else if (tier !== 'pro') {
+      document.getElementById('ai-upsell').classList.remove('d-none');
+    }
+  }
+</script>
+{{ end }}
