@@ -1,0 +1,261 @@
+{{ define "main" }}
+<div class="container py-4" style="max-width: 920px;">
+
+  <!-- Signed-out state -->
+  <div id="account-signed-out" class="text-center py-5 d-none">
+    <i class="bi bi-person-circle fs-1 text-muted"></i>
+    <h1 class="h4 mt-3">Sign in to see your account</h1>
+    <p class="text-muted">Your scan history and plan live here once you sign in.</p>
+    <button class="btn btn-primary mt-2" onclick="signInWithGoogle()">
+      <i class="bi bi-google me-1"></i>Sign in with Google
+    </button>
+  </div>
+
+  <!-- Signed-in state -->
+  <div id="account-signed-in" class="d-none">
+
+    <!-- Header with tier + email -->
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-4">
+      <div>
+        <h1 class="h3 fw-semibold mb-1">Account</h1>
+        <div class="text-muted small">
+          <i class="bi bi-envelope me-1"></i>
+          <span id="account-email">—</span>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span id="account-tier-badge" class="badge fs-6">—</span>
+        <button class="btn btn-outline-secondary btn-sm" onclick="authSignOut()">
+          <i class="bi bi-box-arrow-right me-1"></i>Sign out
+        </button>
+      </div>
+    </div>
+
+    <!-- Plan card -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div>
+            <div class="text-muted small">Current plan</div>
+            <div class="fw-semibold h5 mb-1" id="account-plan-name">Free</div>
+            <div class="text-muted small" id="account-plan-desc">Unlimited scans, limited premium features.</div>
+          </div>
+          <div class="d-flex gap-2">
+            <a href="{{ "pricing/" | relURL }}" class="btn btn-primary tier-free-show">Upgrade</a>
+            <button class="btn btn-outline-secondary tier-basic-show tier-pro-show"
+                    onclick="openBillingPortal()" id="btn-portal">
+              Manage subscription
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Free-tier cap banner -->
+    <div id="history-cap-banner" class="alert alert-warning d-none">
+      <i class="bi bi-info-circle me-1"></i>
+      Free accounts see their 25 most recent scans.
+      <a href="{{ "pricing/" | relURL }}" class="alert-link">Upgrade to Basic</a>
+      to keep unlimited history.
+    </div>
+
+    <!-- Scan history -->
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold">
+          <i class="bi bi-clock-history me-1"></i>Scan history
+        </span>
+        <a href="{{ "app/" | relURL }}" class="btn btn-sm btn-primary">
+          <i class="bi bi-upc-scan me-1"></i>New scan
+        </a>
+      </div>
+
+      <div id="history-loading" class="text-center py-4">
+        <div class="spinner-border text-primary"></div>
+      </div>
+
+      <div id="history-empty" class="text-center py-5 d-none">
+        <i class="bi bi-inbox fs-2 text-muted"></i>
+        <p class="text-muted mt-2 mb-3">No scans yet. Try your first one.</p>
+        <a href="{{ "app/" | relURL }}" class="btn btn-primary">
+          <i class="bi bi-upc-scan me-1"></i>Scan a cert
+        </a>
+      </div>
+
+      <div class="table-responsive d-none" id="history-table-wrap">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Cert</th>
+              <th>Card</th>
+              <th>Grade</th>
+              <th>Centering</th>
+              <th>Similarity</th>
+              <th class="text-end pe-3">Scanned</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="text-center py-3 border-top d-none" id="history-loadmore-wrap">
+        <button class="btn btn-outline-secondary btn-sm" id="btn-loadmore" onclick="loadHistoryMore()">
+          Load more
+        </button>
+      </div>
+    </div>
+
+    <div id="history-error" class="alert alert-danger mt-3 d-none"></div>
+  </div>
+</div>
+{{ end }}
+
+{{ define "page-scripts" }}
+<script>
+  let historyNextBefore = null;
+
+  if (window._firebaseReady) firebase.auth().onAuthStateChanged(async user => {
+    if (!user) {
+      document.getElementById('account-signed-out').classList.remove('d-none');
+      document.getElementById('account-signed-in').classList.add('d-none');
+      return;
+    }
+    document.getElementById('account-signed-out').classList.add('d-none');
+    document.getElementById('account-signed-in').classList.remove('d-none');
+    document.getElementById('account-email').textContent = user.email || '';
+
+    // Tier refresh happens in tier.js; read the resolved class off body.
+    renderTier(getCurrentTier());
+
+    await loadHistory();
+  });
+
+  function renderTier(tier) {
+    const badge = document.getElementById('account-tier-badge');
+    const planName = document.getElementById('account-plan-name');
+    const planDesc = document.getElementById('account-plan-desc');
+
+    switch (tier) {
+      case 'pro':
+        badge.textContent = 'Pro';
+        badge.className = 'badge fs-6 text-bg-warning text-dark';
+        planName.textContent = 'Pro';
+        planDesc.textContent = 'AI analysis, databasing features, unlimited history, no ads.';
+        break;
+      case 'basic':
+        badge.textContent = 'Basic';
+        badge.className = 'badge fs-6 text-bg-primary';
+        planName.textContent = 'Basic';
+        planDesc.textContent = 'Full premium features, unlimited history, no ads.';
+        break;
+      default:
+        badge.textContent = 'Free';
+        badge.className = 'badge fs-6 text-bg-light border';
+        planName.textContent = 'Free';
+        planDesc.textContent = 'Unlimited scans, limited premium features. 25 most recent scans shown.';
+    }
+  }
+
+  async function loadHistory() {
+    try {
+      const res = await api('GET', '/api/scan/history');
+      document.getElementById('history-loading').classList.add('d-none');
+      historyNextBefore = res.next_before || null;
+
+      if (!res.entries || res.entries.length === 0) {
+        document.getElementById('history-empty').classList.remove('d-none');
+        return;
+      }
+
+      renderHistoryRows(res.entries, /*append=*/false);
+      document.getElementById('history-table-wrap').classList.remove('d-none');
+
+      if (res.limit_hit && res.tier_cap > 0) {
+        document.getElementById('history-cap-banner').classList.remove('d-none');
+      }
+      if (historyNextBefore) {
+        document.getElementById('history-loadmore-wrap').classList.remove('d-none');
+      }
+    } catch (e) {
+      document.getElementById('history-loading').classList.add('d-none');
+      const err = document.getElementById('history-error');
+      err.textContent = 'Failed to load history: ' + e.message;
+      err.classList.remove('d-none');
+    }
+  }
+
+  async function loadHistoryMore() {
+    if (!historyNextBefore) return;
+    const btn = document.getElementById('btn-loadmore');
+    btn.disabled = true;
+    try {
+      const res = await api('GET', '/api/scan/history?before=' + encodeURIComponent(historyNextBefore));
+      historyNextBefore = res.next_before || null;
+      renderHistoryRows(res.entries || [], /*append=*/true);
+      if (!historyNextBefore) {
+        document.getElementById('history-loadmore-wrap').classList.add('d-none');
+      }
+    } catch (e) {
+      showToast('Failed to load more: ' + e.message, 'danger');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderHistoryRows(entries, append) {
+    const tbody = document.getElementById('history-tbody');
+    const rows = entries.map(e => {
+      const centering = (e.defects && e.defects.centering) || {};
+      const centScore = centering.score != null ? Math.round(centering.score * 100) + '%' : '—';
+      const centColor = centering.score == null ? 'text-muted'
+                     : centering.score >= 0.85 ? 'text-success'
+                     : centering.score >= 0.65 ? 'text-warning'
+                                                : 'text-danger';
+      const simCell = e.similarity != null
+        ? Math.round(e.similarity * 100) + '%'
+        : '<span class="text-muted small">pending</span>';
+
+      return `
+        <tr>
+          <td class="ps-3 font-monospace small">${escHtml(e.cert_number)}</td>
+          <td>
+            <div>${escHtml(e.card_name || '—')}</div>
+            <div class="text-muted small">${escHtml((e.set_code || '').toUpperCase())} ${escHtml(e.card_number || '')}</div>
+          </td>
+          <td><span class="badge text-bg-secondary">PSA ${escHtml(e.grade || '?')}</span></td>
+          <td class="${centColor}">${centScore}</td>
+          <td>${simCell}</td>
+          <td class="text-end pe-3 text-muted small">${formatDate(e.scanned_at)}</td>
+        </tr>`;
+    }).join('');
+
+    if (append) tbody.insertAdjacentHTML('beforeend', rows);
+    else tbody.innerHTML = rows;
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d)) return iso;
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  function escHtml(s) {
+    const d = document.createElement('div');
+    d.appendChild(document.createTextNode(s == null ? '' : String(s)));
+    return d.innerHTML;
+  }
+
+  // Stripe Customer Portal — real impl lands in Phase 3.
+  function openBillingPortal() {
+    showToast('Billing portal is not yet live. Coming in the paid tier launch.', 'secondary');
+  }
+
+  // Handle the unauthenticated case when Firebase isn't configured at all.
+  if (!window._firebaseReady) {
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('account-signed-out').classList.remove('d-none');
+    });
+  }
+</script>
+{{ end }}

@@ -58,3 +58,6 @@ theme = "public"
     name = "FAQ"
     url = "/faq/"
     weight = 30
+  # "Account" is not in the main menu — the navbar has a dedicated Account
+  # button that appears only when signed in, so we don't want a duplicate
+  # always-visible nav link.
