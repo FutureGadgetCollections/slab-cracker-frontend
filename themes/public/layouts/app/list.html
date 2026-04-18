@@ -1,35 +1,56 @@
 {{ define "main" }}
-<div class="container py-4" style="max-width: 960px;">
+<div class="container py-4" style="max-width: 1100px;">
   <div class="text-center mb-4">
     <h1 class="h3 fw-semibold">Scan a card</h1>
-    <p class="text-muted mb-0">Drop the front and back scans. We analyze centering in your browser — no uploads, no waiting.</p>
+    <p class="text-muted mb-0">
+      Drop the front and back scans, then drag the green (card edge) and yellow (art border) lines
+      to measure centering. Nothing leaves your browser.
+    </p>
   </div>
 
-  <!-- Drop zones -->
+  <!-- Drop zones (hidden once a side is loaded; replaced by the canvas) -->
   <div class="row g-3">
     {{ range $side := slice "front" "back" }}
     <div class="col-md-6">
       <div class="card shadow-sm border-0 h-100">
-        <div class="card-body p-3">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <strong class="text-capitalize">{{ . }}</strong>
-            <span class="text-muted small" id="status-{{ . }}">No image</span>
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+          <strong class="text-capitalize">{{ . }}</strong>
+          <div class="d-flex align-items-center gap-2">
+            <span class="text-muted small" id="status-{{ . }}"></span>
+            <button class="btn btn-sm btn-outline-secondary d-none"
+                    id="btn-replace-{{ . }}"
+                    onclick="document.getElementById('file-{{ . }}').click()">
+              Replace
+            </button>
           </div>
+        </div>
+        <div class="card-body p-3">
+
+          <!-- Drop zone -->
           <div class="scan-drop rounded p-3 text-center"
                id="drop-{{ . }}"
-               data-side="{{ . }}"
                ondragover="event.preventDefault(); this.classList.add('drop-active')"
                ondragleave="this.classList.remove('drop-active')"
                ondrop="handleDrop(event, '{{ . }}')"
                onclick="document.getElementById('file-{{ . }}').click()">
-            <div id="drop-{{ . }}-placeholder">
-              <i class="bi bi-cloud-upload fs-1 text-muted"></i>
-              <div class="text-muted small mt-2">Drop image or click to choose</div>
-            </div>
-            <img id="drop-{{ . }}-preview"
-                 alt="{{ . }} preview"
-                 style="max-width:100%; max-height:260px; object-fit:contain; display:none">
+            <i class="bi bi-cloud-upload fs-1 text-muted"></i>
+            <div class="text-muted small mt-2">Drop image or click to choose</div>
           </div>
+
+          <!-- Canvas (shown after an image loads) -->
+          <canvas id="canvas-{{ . }}" class="scan-canvas d-none"></canvas>
+
+          <!-- Measurements table -->
+          <div class="mt-3 d-none" id="meas-wrap-{{ . }}">
+            <div class="d-flex justify-content-between align-items-baseline mb-1">
+              <span class="text-muted small">Centering</span>
+              <span class="fw-semibold" id="score-{{ . }}">—</span>
+            </div>
+            <table class="table table-sm mb-0">
+              <tbody id="meas-{{ . }}"></tbody>
+            </table>
+          </div>
+
           <input type="file" id="file-{{ . }}" accept="image/*" style="display:none"
                  onchange="handlePick(this.files, '{{ . }}')">
         </div>
@@ -38,20 +59,21 @@
     {{ end }}
   </div>
 
-  <!-- Crop mode + PSA lookup row -->
+  <!-- Controls: slab type + PSA lookup -->
   <div class="card shadow-sm border-0 mt-3">
     <div class="card-body p-3">
       <div class="row g-3 align-items-center">
         <div class="col-md-6">
           <label class="form-label small fw-medium mb-1">Slab type</label>
           <div class="btn-group btn-group-sm w-100" role="group">
-            <input type="radio" class="btn-check" name="crop-mode" id="crop-psa" value="psa" checked>
+            <input type="radio" class="btn-check" name="crop-mode" id="crop-psa" value="psa" checked onchange="recropAll()">
             <label class="btn btn-outline-secondary" for="crop-psa">PSA</label>
-            <input type="radio" class="btn-check" name="crop-mode" id="crop-cgc" value="cgc">
+            <input type="radio" class="btn-check" name="crop-mode" id="crop-cgc" value="cgc" onchange="recropAll()">
             <label class="btn btn-outline-secondary" for="crop-cgc">CGC</label>
-            <input type="radio" class="btn-check" name="crop-mode" id="crop-none" value="none">
+            <input type="radio" class="btn-check" name="crop-mode" id="crop-none" value="none" onchange="recropAll()">
             <label class="btn btn-outline-secondary" for="crop-none">No crop</label>
           </div>
+          <div class="form-text">Changing this re-crops loaded images and resets lines to defaults.</div>
         </div>
         <div class="col-md-6">
           <label for="cert-input" class="form-label small fw-medium mb-1">PSA cert (optional)</label>
@@ -69,58 +91,37 @@
     </div>
   </div>
 
-  <!-- Run + status -->
-  <div class="d-flex align-items-center gap-3 mt-3">
-    <button class="btn btn-primary btn-lg" id="btn-run" onclick="runScan()" disabled>
-      <i class="bi bi-crosshair me-1"></i>Analyze
-    </button>
-    <div class="text-muted small" id="run-status"></div>
-  </div>
-
-  <!-- Results -->
-  <div id="results" class="mt-4 d-none">
-
-    <!-- Verdict + save status -->
-    <div class="card shadow-sm border-0">
-      <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <!-- Verdict + save (visible once at least one side has measurements) -->
+  <div class="card shadow-sm border-0 mt-3 d-none" id="verdict-card">
+    <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <div class="text-muted small">Overall verdict</div>
+        <div id="verdict-badge" class="badge fs-5 mt-1">—</div>
+      </div>
+      <div class="text-end">
+        <div class="text-muted small">Combined centering</div>
+        <div class="fs-4 fw-semibold" id="overall-score">—</div>
+      </div>
+      <div class="w-100 d-flex justify-content-between align-items-center gap-2 mt-2">
+        <div class="text-muted small">
+          Drag any handle on the canvas to adjust lines. Measurements update live.
+        </div>
         <div>
-          <div class="text-muted small">Verdict</div>
-          <div id="verdict-badge" class="badge fs-5 mt-1">—</div>
-        </div>
-        <div class="text-end">
-          <div class="text-muted small">Centering score</div>
-          <div class="fs-4 fw-semibold" id="overall-score">—</div>
-        </div>
-        <div class="w-100" id="save-banner"></div>
-      </div>
-    </div>
-
-    <!-- Per-side breakdown -->
-    <div class="row g-3 mt-1">
-      {{ range $side := slice "front" "back" }}
-      <div class="col-md-6">
-        <div class="card shadow-sm border-0 h-100">
-          <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
-            <strong class="text-capitalize">{{ . }}</strong>
-            <span class="fw-semibold" id="score-{{ . }}">—</span>
-          </div>
-          <div class="card-body p-3">
-            <div class="text-center mb-3">
-              <img id="result-{{ . }}-img" alt="{{ . }} analyzed"
-                   style="max-width:100%; max-height:240px; object-fit:contain">
-            </div>
-            <div class="table-responsive">
-              <table class="table table-sm align-middle mb-0">
-                <tbody id="table-{{ . }}"></tbody>
-              </table>
-            </div>
-          </div>
+          <button class="btn btn-primary btn-sm" id="btn-save" onclick="saveScan()" disabled>
+            <i class="bi bi-bookmark-plus me-1"></i>Save to history
+          </button>
+          <span id="save-status" class="text-muted small ms-2"></span>
         </div>
       </div>
-      {{ end }}
+      <div class="w-100 alert alert-info mb-0 py-2 small d-none" id="signup-cta">
+        <i class="bi bi-person-plus me-1"></i>
+        Not signed in — this scan won't be saved.
+        <a href="#" onclick="signInWithGoogle(); return false;">Sign up free</a> to keep history.
+      </div>
     </div>
   </div>
 
+  <!-- Scroll target for "View history" -->
   <div id="scan-error" class="alert alert-danger mt-3 d-none"></div>
 </div>
 {{ end }}
@@ -135,13 +136,40 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-direction: column;
   }
   .scan-drop.drop-active { border-color: #0d6efd; background: #f1f7ff; }
   .scan-drop:hover { border-color: #0d6efd; }
+  .scan-canvas {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    cursor: grab;
+    background: #222;
+    border-radius: 0.5rem;
+  }
+  .scan-canvas.dragging { cursor: grabbing; }
 </style>
 <script>
-  const scanFiles = { front: null, back: null };
+  // Slab crop percentages (matches centering-cv.js SLAB_CROPS)
+  const CROP_PCTS = {
+    psa:  { left: 0.095, right: 0.095, top: 0.26,  bottom: 0.0715 },
+    cgc:  { left: 0.085, right: 0.085, top: 0.22,  bottom: 0.065 },
+    none: { left: 0,     right: 0,     top: 0,     bottom: 0 },
+  };
 
+  // Control-point model: each line stored as two handles at 10% / 90% along
+  // its primary axis. Drag handles → line updates → measurements recompute.
+  const CTRL_LO = 0.10, CTRL_HI = 0.90;
+  const VERT_LINES = new Set(['card_left', 'card_right', 'art_left', 'art_right']);
+  const isVertLine = (n) => VERT_LINES.has(n);
+
+  const sideState = {
+    front: { file: null, image: null, canvas: null, lines: null, dragging: null },
+    back:  { file: null, image: null, canvas: null, lines: null, dragging: null },
+  };
+
+  // ── File ingest ────────────────────────────────────────────────────────────
   function handleDrop(e, side) {
     e.preventDefault();
     e.currentTarget.classList.remove('drop-active');
@@ -159,83 +187,289 @@
       showToast('Please drop an image file', 'warning');
       return;
     }
-    scanFiles[side] = file;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const preview = document.getElementById(`drop-${side}-preview`);
-      preview.src = ev.target.result;
-      preview.style.display = '';
-      document.getElementById(`drop-${side}-placeholder`).style.display = 'none';
-      document.getElementById(`status-${side}`).textContent = file.name;
+    sideState[side].file = file;
+    document.getElementById(`status-${side}`).textContent = file.name;
+    loadImageForSide(side);
+  }
+
+  function loadImageForSide(side) {
+    const state = sideState[side];
+    const img = new Image();
+    img.onload = () => {
+      state.image = img;
+      prepareSide(side);
     };
-    reader.readAsDataURL(file);
-    document.getElementById('btn-run').disabled = !(scanFiles.front && scanFiles.back);
+    img.onerror = () => showToast('Failed to load image', 'danger');
+    img.src = URL.createObjectURL(state.file);
   }
 
-  function openPSALookup() {
-    const cert = document.getElementById('cert-input').value.trim();
-    if (!/^\d{7,10}$/.test(cert)) {
-      showToast('Enter a 7–10 digit PSA cert number first', 'warning');
-      return;
-    }
-    window.open(`https://www.psacard.com/cert/${cert}`, '_blank', 'noopener,noreferrer');
-  }
-
-  function loadImage(file) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = URL.createObjectURL(file);
-    });
-  }
-
-  async function runScan() {
-    if (!(scanFiles.front && scanFiles.back)) return;
-    const btn = document.getElementById('btn-run');
-    const status = document.getElementById('run-status');
-    const errEl = document.getElementById('scan-error');
-    errEl.classList.add('d-none');
-
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analyzing…';
-    status.textContent = 'Loading images…';
-
+  // ── Prepare side: crop + default lines + render ────────────────────────────
+  function prepareSide(side) {
+    const state = sideState[side];
+    if (!state.image) return;
     const cropMode = document.querySelector('input[name="crop-mode"]:checked').value;
+    state.canvas = cropImageForSlab(state.image, cropMode);
+    state.lines = defaultLines(state.canvas.width, state.canvas.height);
+    state.dragging = null;
 
-    try {
-      const [frontImg, backImg] = await Promise.all([
-        loadImage(scanFiles.front),
-        loadImage(scanFiles.back),
-      ]);
+    // Hide drop zone, show canvas
+    document.getElementById(`drop-${side}`).classList.add('d-none');
+    document.getElementById(`btn-replace-${side}`).classList.remove('d-none');
+    document.getElementById(`meas-wrap-${side}`).classList.remove('d-none');
 
-      status.textContent = 'Running CV on front…';
-      const frontResult = runCenteringCV(frontImg, cropMode);
-      status.textContent = 'Running CV on back…';
-      const backResult = runCenteringCV(backImg, cropMode);
+    const displayCanvas = document.getElementById(`canvas-${side}`);
+    displayCanvas.classList.remove('d-none');
+    displayCanvas.width = state.canvas.width;
+    displayCanvas.height = state.canvas.height;
 
-      renderResults(frontResult, backResult);
-      status.textContent = 'Done.';
+    attachCanvasHandlers(side);
+    renderSide(side);
+    updateVerdict();
+  }
 
-      // Persist for signed-in users; fire-and-forget.
-      saveForSignedIn({
-        cert_number: document.getElementById('cert-input').value.trim(),
-        defects: defectsPayload(frontResult, backResult),
-        similarity: null,
-        ml_status: 'pending',
-      });
-    } catch (e) {
-      errEl.textContent = 'Analyze failed: ' + e.message;
-      errEl.classList.remove('d-none');
-      status.textContent = '';
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Analyze';
+  function recropAll() {
+    for (const side of ['front', 'back']) {
+      if (sideState[side].image) prepareSide(side);
     }
   }
 
-  // ── Scoring ────────────────────────────────────────────────────────────────
-  // Each measurement's ratio string (e.g. "52/48") → offset from 50/50 in [0, 0.5].
+  function cropImageForSlab(img, cropMode) {
+    const c = CROP_PCTS[cropMode] || CROP_PCTS.none;
+    const w = img.naturalWidth || img.width;
+    const h = img.naturalHeight || img.height;
+    const x0 = Math.round(w * c.left),  y0 = Math.round(h * c.top);
+    const x1 = Math.round(w * (1 - c.right)), y1 = Math.round(h * (1 - c.bottom));
+    const cw = x1 - x0, ch = y1 - y0;
+    const canvas = document.createElement('canvas');
+    canvas.width = cw; canvas.height = ch;
+    canvas.getContext('2d').drawImage(img, x0, y0, cw, ch, 0, 0, cw, ch);
+    return canvas;
+  }
+
+  function defaultLines(w, h) {
+    const mk = (kind, p0, p1) => ({ kind, p0, p1 });
+    return {
+      card_top:   mk('card', { x: w*CTRL_LO, y: h*0.01 }, { x: w*CTRL_HI, y: h*0.01 }),
+      card_bot:   mk('card', { x: w*CTRL_LO, y: h*0.99 }, { x: w*CTRL_HI, y: h*0.99 }),
+      card_left:  mk('card', { x: w*0.02,    y: h*CTRL_LO }, { x: w*0.02,    y: h*CTRL_HI }),
+      card_right: mk('card', { x: w*0.98,    y: h*CTRL_LO }, { x: w*0.98,    y: h*CTRL_HI }),
+      art_top:    mk('art',  { x: w*CTRL_LO, y: h*0.06 }, { x: w*CTRL_HI, y: h*0.06 }),
+      art_bot:    mk('art',  { x: w*CTRL_LO, y: h*0.94 }, { x: w*CTRL_HI, y: h*0.94 }),
+      art_left:   mk('art',  { x: w*0.10,    y: h*CTRL_LO }, { x: w*0.10,    y: h*CTRL_HI }),
+      art_right:  mk('art',  { x: w*0.90,    y: h*CTRL_LO }, { x: w*0.90,    y: h*CTRL_HI }),
+    };
+  }
+
+  // ── Line geometry helpers (control-point form) ─────────────────────────────
+  function lineValAt(ctrl, name, coord) {
+    if (isVertLine(name)) {
+      const dy = ctrl.p1.y - ctrl.p0.y || 1;
+      return ctrl.p0.x + (ctrl.p1.x - ctrl.p0.x) * (coord - ctrl.p0.y) / dy;
+    }
+    const dx = ctrl.p1.x - ctrl.p0.x || 1;
+    return ctrl.p0.y + (ctrl.p1.y - ctrl.p0.y) * (coord - ctrl.p0.x) / dx;
+  }
+
+  function controlsToEndpoints(name, ctrl, w, h) {
+    if (isVertLine(name)) {
+      return { x0: lineValAt(ctrl, name, 0), y0: 0, x1: lineValAt(ctrl, name, h), y1: h };
+    }
+    return { x0: 0, y0: lineValAt(ctrl, name, 0), x1: w, y1: lineValAt(ctrl, name, w) };
+  }
+
+  // ── Measurements from current lines ────────────────────────────────────────
+  function computeMeasurements(lines, w, h) {
+    const ev = (name, coord) => lines[name] ? lineValAt(lines[name], name, coord) : null;
+    const ratioStr = (a, b) => {
+      a = Math.max(0, a); b = Math.max(0, b);
+      const t = a + b;
+      if (t <= 0) return '50/50';
+      const pa = Math.round(a / t * 100);
+      return `${pa}/${100 - pa}`;
+    };
+    const out = [];
+    const cx = w / 2, cy = h / 2;
+
+    const yT = ev('art_top', cx);
+    if (yT != null) {
+      const cl = ev('card_left', yT), al = ev('art_left', yT);
+      const cr = ev('card_right', yT), ar = ev('art_right', yT);
+      if ([cl, al, cr, ar].every(v => v != null)) {
+        out.push({ position: 'lr_top', ratio: ratioStr(al - cl, cr - ar) });
+      }
+    }
+    const yB = ev('art_bot', cx);
+    if (yB != null) {
+      const cl = ev('card_left', yB), al = ev('art_left', yB);
+      const cr = ev('card_right', yB), ar = ev('art_right', yB);
+      if ([cl, al, cr, ar].every(v => v != null)) {
+        out.push({ position: 'lr_bot', ratio: ratioStr(al - cl, cr - ar) });
+      }
+    }
+    const xL = ev('art_left', cy);
+    if (xL != null) {
+      const ct = ev('card_top', xL), at = ev('art_top', xL);
+      const cb = ev('card_bot', xL), ab = ev('art_bot', xL);
+      if ([ct, at, cb, ab].every(v => v != null)) {
+        out.push({ position: 'tb_left', ratio: ratioStr(at - ct, cb - ab) });
+      }
+    }
+    const xR = ev('art_right', cy);
+    if (xR != null) {
+      const ct = ev('card_top', xR), at = ev('art_top', xR);
+      const cb = ev('card_bot', xR), ab = ev('art_bot', xR);
+      if ([ct, at, cb, ab].every(v => v != null)) {
+        out.push({ position: 'tb_right', ratio: ratioStr(at - ct, cb - ab) });
+      }
+    }
+    return out;
+  }
+
+  // ── Canvas rendering ───────────────────────────────────────────────────────
+  function renderSide(side) {
+    const state = sideState[side];
+    if (!state.canvas) return;
+    const display = document.getElementById(`canvas-${side}`);
+    const ctx = display.getContext('2d');
+    const w = display.width, h = display.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(state.canvas, 0, 0);
+
+    // Lines
+    ctx.lineWidth = 2;
+    for (const [name, ctrl] of Object.entries(state.lines)) {
+      const color = ctrl.kind === 'card' ? '#00c800' : '#ffdc00';
+      const ep = controlsToEndpoints(name, ctrl, w, h);
+      ctx.strokeStyle = color;
+      ctx.beginPath(); ctx.moveTo(ep.x0, ep.y0); ctx.lineTo(ep.x1, ep.y1); ctx.stroke();
+
+      // Handles at the two control points
+      for (const pt of ['p0', 'p1']) {
+        const { x, y } = ctrl[pt];
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 2;
+      }
+    }
+
+    // Measurements
+    const meas = computeMeasurements(state.lines, w, h);
+    renderMeasurementsTable(side, meas);
+    updateVerdict();
+  }
+
+  function renderMeasurementsTable(side, meas) {
+    const labels = {
+      lr_top:   'L/R at top',
+      lr_bot:   'L/R at bottom',
+      tb_left:  'T/B at left',
+      tb_right: 'T/B at right',
+    };
+    const tbody = document.getElementById(`meas-${side}`);
+    tbody.innerHTML = meas.map(m => {
+      const off = ratioOffset(m.ratio);
+      const color = off == null ? 'text-muted'
+                  : off <= 0.02 ? 'text-success'
+                  : off <= 0.05 ? 'text-warning'
+                                : 'text-danger';
+      return `<tr>
+        <td class="text-muted small">${labels[m.position] || m.position}</td>
+        <td class="text-end font-monospace fw-semibold ${color}">${m.ratio}</td>
+      </tr>`;
+    }).join('');
+
+    const score = sideCenteringScore(meas);
+    const scoreEl = document.getElementById(`score-${side}`);
+    scoreEl.textContent = score != null ? Math.round(score * 100) + '%' : '—';
+    scoreEl.className = 'fw-semibold ' + scoreColor(score);
+  }
+
+  // ── Mouse drag handlers ────────────────────────────────────────────────────
+  function attachCanvasHandlers(side) {
+    const canvas = document.getElementById(`canvas-${side}`);
+    if (canvas._handlersAttached) return;
+    canvas._handlersAttached = true;
+
+    canvas.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const pos = eventToCanvas(canvas, e);
+      const hit = hitTestHandle(side, pos);
+      if (hit) {
+        sideState[side].dragging = hit;
+        canvas.classList.add('dragging');
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const state = sideState[side];
+      if (!state.dragging) return;
+      const pos = eventToCanvas(canvas, e);
+      const ctrl = state.lines[state.dragging.lineName];
+      ctrl[state.dragging.pt].x = Math.max(0, Math.min(canvas.width,  pos.x));
+      ctrl[state.dragging.pt].y = Math.max(0, Math.min(canvas.height, pos.y));
+      renderSide(side);
+    });
+
+    const endDrag = () => {
+      sideState[side].dragging = null;
+      canvas.classList.remove('dragging');
+    };
+    window.addEventListener('mouseup', endDrag);
+    canvas.addEventListener('mouseleave', endDrag);
+
+    // Touch support — single-finger drag only
+    canvas.addEventListener('touchstart', (e) => {
+      if (!e.touches.length) return;
+      const pos = eventToCanvas(canvas, e.touches[0]);
+      const hit = hitTestHandle(side, pos);
+      if (hit) {
+        sideState[side].dragging = hit;
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', (e) => {
+      const state = sideState[side];
+      if (!state.dragging || !e.touches.length) return;
+      e.preventDefault();
+      const pos = eventToCanvas(canvas, e.touches[0]);
+      const ctrl = state.lines[state.dragging.lineName];
+      ctrl[state.dragging.pt].x = Math.max(0, Math.min(canvas.width,  pos.x));
+      ctrl[state.dragging.pt].y = Math.max(0, Math.min(canvas.height, pos.y));
+      renderSide(side);
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', endDrag);
+  }
+
+  function eventToCanvas(canvas, evt) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / rect.width;
+    const sy = canvas.height / rect.height;
+    return { x: (evt.clientX - rect.left) * sx, y: (evt.clientY - rect.top) * sy };
+  }
+
+  function hitTestHandle(side, pos) {
+    const state = sideState[side];
+    if (!state.lines) return null;
+    // Hit radius proportional to canvas — 12px in display space.
+    const canvas = document.getElementById(`canvas-${side}`);
+    const rect = canvas.getBoundingClientRect();
+    const radius = 12 * (canvas.width / rect.width);
+    for (const [name, ctrl] of Object.entries(state.lines)) {
+      for (const pt of ['p0', 'p1']) {
+        const dx = ctrl[pt].x - pos.x, dy = ctrl[pt].y - pos.y;
+        if (Math.sqrt(dx*dx + dy*dy) <= radius) return { lineName: name, pt };
+      }
+    }
+    return null;
+  }
+
+  // ── Scoring (shared with account page display) ─────────────────────────────
   function ratioOffset(ratioStr) {
     const m = /^(\d+)\/(\d+)$/.exec(ratioStr || '');
     if (!m) return null;
@@ -244,19 +478,12 @@
     return Math.abs(a / (a + b) - 0.5);
   }
 
-  function centeringScore(measurements) {
-    if (!measurements || !measurements.length) return null;
-    const offsets = measurements.map(m => ratioOffset(m.ratio)).filter(x => x != null);
+  function sideCenteringScore(meas) {
+    if (!meas || !meas.length) return null;
+    const offsets = meas.map(m => ratioOffset(m.ratio)).filter(x => x != null);
     if (!offsets.length) return null;
     const avg = offsets.reduce((a, b) => a + b, 0) / offsets.length;
-    return Math.max(0, 1 - avg * 2); // map [0, 0.5] → [1, 0]
-  }
-
-  function scoreLabel(s) {
-    if (s == null) return 'unknown';
-    if (s >= 0.85) return 'good';
-    if (s >= 0.65) return 'fair';
-    return 'poor';
+    return Math.max(0, 1 - avg * 2);
   }
 
   function scoreColor(s) {
@@ -280,108 +507,83 @@
     return 'Skip';
   }
 
-  // ── Rendering ──────────────────────────────────────────────────────────────
-  function renderResults(front, back) {
-    const frontScore = centeringScore(front.measurements);
-    const backScore = centeringScore(back.measurements);
-    const overall = (frontScore != null && backScore != null)
-      ? (frontScore + backScore) / 2
-      : (frontScore ?? backScore);
+  // ── Verdict / save banner ──────────────────────────────────────────────────
+  function updateVerdict() {
+    const fs = sideState.front.lines ? sideCenteringScore(computeMeasurements(
+      sideState.front.lines, sideState.front.canvas.width, sideState.front.canvas.height)) : null;
+    const bs = sideState.back.lines ? sideCenteringScore(computeMeasurements(
+      sideState.back.lines, sideState.back.canvas.width, sideState.back.canvas.height)) : null;
 
-    document.getElementById('score-front').textContent = frontScore != null
-      ? Math.round(frontScore * 100) + '%' : '—';
-    document.getElementById('score-front').className = 'fw-semibold ' + scoreColor(frontScore);
-    document.getElementById('score-back').textContent = backScore != null
-      ? Math.round(backScore * 100) + '%' : '—';
-    document.getElementById('score-back').className = 'fw-semibold ' + scoreColor(backScore);
+    if (fs == null && bs == null) {
+      document.getElementById('verdict-card').classList.add('d-none');
+      return;
+    }
+    document.getElementById('verdict-card').classList.remove('d-none');
 
-    document.getElementById('overall-score').textContent = overall != null
-      ? Math.round(overall * 100) + '%' : '—';
+    const overall = (fs != null && bs != null) ? (fs + bs) / 2 : (fs ?? bs);
+    document.getElementById('overall-score').textContent =
+      overall != null ? Math.round(overall * 100) + '%' : '—';
     document.getElementById('overall-score').className = 'fs-4 fw-semibold ' + scoreColor(overall);
 
-    const verdict = document.getElementById('verdict-badge');
-    verdict.textContent = verdictText(overall);
-    verdict.className = 'badge fs-5 mt-1 ' + scoreBadgeClass(overall);
+    const badge = document.getElementById('verdict-badge');
+    badge.textContent = verdictText(overall);
+    badge.className = 'badge fs-5 mt-1 ' + scoreBadgeClass(overall);
 
-    renderSide('front', front);
-    renderSide('back', back);
-
-    document.getElementById('results').classList.remove('d-none');
-  }
-
-  function renderSide(side, result) {
-    // Image (the CV pipeline returns a cropped base64 PNG — show that so the
-    // user sees exactly what the model analyzed).
-    const img = document.getElementById(`result-${side}-img`);
-    img.src = 'data:image/png;base64,' + result.base_png_b64;
-
-    // Measurements table
-    const labels = {
-      lr_top:   'Left / right at top',
-      lr_bot:   'Left / right at bottom',
-      tb_left:  'Top / bottom at left',
-      tb_right: 'Top / bottom at right',
-    };
-    const tbody = document.getElementById(`table-${side}`);
-    if (!result.measurements || !result.measurements.length) {
-      tbody.innerHTML = `<tr><td class="text-muted small">
-        Couldn't detect card edges reliably. Try a higher-resolution image.
-      </td></tr>`;
-      return;
-    }
-    tbody.innerHTML = result.measurements.map(m => {
-      const off = ratioOffset(m.ratio);
-      const color = off == null ? 'text-muted'
-                  : off <= 0.02 ? 'text-success'
-                  : off <= 0.05 ? 'text-warning'
-                                : 'text-danger';
-      return `
-        <tr>
-          <td class="text-muted small">${labels[m.position] || m.position}</td>
-          <td class="font-monospace fw-semibold text-end ${color}">${m.ratio}</td>
-        </tr>`;
-    }).join('');
-  }
-
-  // ── Backend save (signed-in only) ──────────────────────────────────────────
-  function defectsPayload(front, back) {
-    const fScore = centeringScore(front.measurements);
-    const bScore = centeringScore(back.measurements);
-    const overall = (fScore != null && bScore != null)
-      ? (fScore + bScore) / 2
-      : (fScore ?? bScore);
-    return {
-      centering: { score: overall, label: scoreLabel(overall) },
-      corners:   { label: 'unknown' },
-      edges:     { label: 'unknown' },
-      surface:   { label: 'unknown' },
-    };
-  }
-
-  async function saveForSignedIn(payload) {
-    const banner = document.getElementById('save-banner');
+    // Save button / signup CTA based on auth state
     const signedIn = window._firebaseReady && firebase.auth().currentUser;
-    if (!signedIn) {
-      banner.innerHTML = `
-        <div class="alert alert-info mb-0 mt-3 small">
-          <i class="bi bi-person-plus me-1"></i>
-          Not signed in — this scan won't be saved.
-          <a href="#" onclick="signInWithGoogle(); return false;">Sign up free</a> to keep history.
-        </div>`;
+    const bothSides = fs != null && bs != null;
+    document.getElementById('btn-save').disabled = !(signedIn && bothSides);
+    document.getElementById('signup-cta').classList.toggle('d-none', !!signedIn);
+  }
+
+  // ── Save to history ────────────────────────────────────────────────────────
+  async function saveScan() {
+    const fs = sideCenteringScore(computeMeasurements(
+      sideState.front.lines, sideState.front.canvas.width, sideState.front.canvas.height));
+    const bs = sideCenteringScore(computeMeasurements(
+      sideState.back.lines, sideState.back.canvas.width, sideState.back.canvas.height));
+    const overall = (fs != null && bs != null) ? (fs + bs) / 2 : (fs ?? bs);
+
+    const status = document.getElementById('save-status');
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true;
+    status.textContent = 'Saving…';
+
+    try {
+      await api('POST', '/api/scan/save', {
+        cert_number: document.getElementById('cert-input').value.trim(),
+        similarity: null,
+        ml_status: 'pending',
+        defects: {
+          centering: { score: overall, label: overall == null ? 'unknown'
+                           : overall >= 0.85 ? 'good'
+                           : overall >= 0.65 ? 'fair' : 'poor' },
+          corners: { label: 'unknown' },
+          edges:   { label: 'unknown' },
+          surface: { label: 'unknown' },
+        },
+      });
+      status.innerHTML = '<i class="bi bi-check-circle text-success me-1"></i>Saved. ' +
+        '<a href="{{ "account/" | relURL }}">View history</a>';
+    } catch (e) {
+      status.innerHTML = '<span class="text-danger">' + e.message + '</span>';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function openPSALookup() {
+    const cert = document.getElementById('cert-input').value.trim();
+    if (!/^\d{7,10}$/.test(cert)) {
+      showToast('Enter a 7–10 digit PSA cert number first', 'warning');
       return;
     }
-    banner.innerHTML = '<div class="text-muted small mt-3"><span class="spinner-border spinner-border-sm me-1"></span>Saving to history…</div>';
-    try {
-      await api('POST', '/api/scan/save', payload);
-      banner.innerHTML = `<div class="text-success small mt-3">
-        <i class="bi bi-check-circle me-1"></i>Saved to your history.
-        <a href="{{ "account/" | relURL }}" class="ms-2">View history</a>
-      </div>`;
-    } catch (e) {
-      banner.innerHTML = `<div class="text-warning small mt-3">
-        <i class="bi bi-exclamation-triangle me-1"></i>Couldn't save to history: ${e.message}
-      </div>`;
-    }
+    window.open(`https://www.psacard.com/cert/${cert}`, '_blank', 'noopener,noreferrer');
+  }
+
+  // Re-evaluate the save button when auth resolves.
+  if (window._firebaseReady) {
+    firebase.auth().onAuthStateChanged(() => updateVerdict());
   }
 </script>
 {{ end }}
