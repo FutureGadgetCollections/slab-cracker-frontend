@@ -1,163 +1,386 @@
 {{ define "main" }}
-<div class="container py-4" style="max-width: 820px;">
+<div class="container py-4" style="max-width: 960px;">
   <div class="text-center mb-4">
-    <h1 class="h3 fw-semibold">Scan a PSA cert</h1>
-    <p class="text-muted">Enter the cert number exactly as printed on the slab.</p>
+    <h1 class="h3 fw-semibold">Scan a card</h1>
+    <p class="text-muted mb-0">Drop the front and back scans. We analyze centering in your browser — no uploads, no waiting.</p>
   </div>
 
-  <!-- Quota banner — shown when anon user has used today's scan -->
-  <div id="quota-banner" class="alert alert-warning d-none">
-    <i class="bi bi-clock me-1"></i>
-    <strong>You've used today's free scan.</strong>
-    <a href="#" onclick="signInWithGoogle(); return false;">Sign up</a> for unlimited scans,
-    or <a href="{{ "pricing/" | relURL }}">upgrade</a> to remove ads.
-  </div>
-
-  <div class="card shadow-sm border-0">
-    <div class="card-body p-4">
-      <form id="scan-form" onsubmit="runScan(event)">
-        <label for="cert-input" class="form-label fw-medium small">PSA cert number</label>
-        <div class="input-group input-group-lg">
-          <input type="text" class="form-control font-monospace" id="cert-input"
-                 placeholder="12345678" pattern="[0-9]{7,10}" required
-                 inputmode="numeric" autocomplete="off">
-          <button class="btn btn-primary" type="submit" id="scan-btn">
-            <i class="bi bi-upc-scan me-1"></i>Scan
-          </button>
+  <!-- Drop zones -->
+  <div class="row g-3">
+    {{ range $side := slice "front" "back" }}
+    <div class="col-md-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-body p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <strong class="text-capitalize">{{ . }}</strong>
+            <span class="text-muted small" id="status-{{ . }}">No image</span>
+          </div>
+          <div class="scan-drop rounded p-3 text-center"
+               id="drop-{{ . }}"
+               data-side="{{ . }}"
+               ondragover="event.preventDefault(); this.classList.add('drop-active')"
+               ondragleave="this.classList.remove('drop-active')"
+               ondrop="handleDrop(event, '{{ . }}')"
+               onclick="document.getElementById('file-{{ . }}').click()">
+            <div id="drop-{{ . }}-placeholder">
+              <i class="bi bi-cloud-upload fs-1 text-muted"></i>
+              <div class="text-muted small mt-2">Drop image or click to choose</div>
+            </div>
+            <img id="drop-{{ . }}-preview"
+                 alt="{{ . }} preview"
+                 style="max-width:100%; max-height:260px; object-fit:contain; display:none">
+          </div>
+          <input type="file" id="file-{{ . }}" accept="image/*" style="display:none"
+                 onchange="handlePick(this.files, '{{ . }}')">
         </div>
-        <div class="form-text">Front and back are fetched automatically from PSA.</div>
-      </form>
+      </div>
+    </div>
+    {{ end }}
+  </div>
+
+  <!-- Crop mode + PSA lookup row -->
+  <div class="card shadow-sm border-0 mt-3">
+    <div class="card-body p-3">
+      <div class="row g-3 align-items-center">
+        <div class="col-md-6">
+          <label class="form-label small fw-medium mb-1">Slab type</label>
+          <div class="btn-group btn-group-sm w-100" role="group">
+            <input type="radio" class="btn-check" name="crop-mode" id="crop-psa" value="psa" checked>
+            <label class="btn btn-outline-secondary" for="crop-psa">PSA</label>
+            <input type="radio" class="btn-check" name="crop-mode" id="crop-cgc" value="cgc">
+            <label class="btn btn-outline-secondary" for="crop-cgc">CGC</label>
+            <input type="radio" class="btn-check" name="crop-mode" id="crop-none" value="none">
+            <label class="btn btn-outline-secondary" for="crop-none">No crop</label>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label for="cert-input" class="form-label small fw-medium mb-1">PSA cert (optional)</label>
+          <div class="input-group input-group-sm">
+            <input type="text" class="form-control font-monospace" id="cert-input"
+                   placeholder="e.g. 12345678" pattern="[0-9]{7,10}"
+                   inputmode="numeric" autocomplete="off">
+            <button class="btn btn-outline-primary" type="button" onclick="openPSALookup()">
+              <i class="bi bi-box-arrow-up-right me-1"></i>Look up on PSA
+            </button>
+          </div>
+          <div class="form-text">Opens the official PSA cert page in a new tab.</div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Result area -->
-  <div id="scan-loading" class="text-center py-5 d-none">
-    <div class="spinner-border text-primary"></div>
-    <p class="text-muted small mt-2">Fetching scans and running analysis…</p>
+  <!-- Run + status -->
+  <div class="d-flex align-items-center gap-3 mt-3">
+    <button class="btn btn-primary btn-lg" id="btn-run" onclick="runScan()" disabled>
+      <i class="bi bi-crosshair me-1"></i>Analyze
+    </button>
+    <div class="text-muted small" id="run-status"></div>
   </div>
 
-  <div id="scan-error" class="alert alert-danger d-none mt-4"></div>
+  <!-- Results -->
+  <div id="results" class="mt-4 d-none">
 
-  <div id="scan-result" class="card shadow-sm border-0 mt-4 d-none">
-    <div class="card-body p-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <span class="badge text-bg-secondary" id="result-grade">PSA 9</span>
-        <span class="font-monospace small text-muted" id="result-cert"></span>
+    <!-- Verdict + save status -->
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <div class="text-muted small">Verdict</div>
+          <div id="verdict-badge" class="badge fs-5 mt-1">—</div>
+        </div>
+        <div class="text-end">
+          <div class="text-muted small">Centering score</div>
+          <div class="fs-4 fw-semibold" id="overall-score">—</div>
+        </div>
+        <div class="w-100" id="save-banner"></div>
       </div>
-      <div class="mb-2 d-flex justify-content-between">
-        <span class="small text-muted">Similarity to PSA 10 set</span>
-        <strong id="result-similarity-pct">—</strong>
+    </div>
+
+    <!-- Per-side breakdown -->
+    <div class="row g-3 mt-1">
+      {{ range $side := slice "front" "back" }}
+      <div class="col-md-6">
+        <div class="card shadow-sm border-0 h-100">
+          <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+            <strong class="text-capitalize">{{ . }}</strong>
+            <span class="fw-semibold" id="score-{{ . }}">—</span>
+          </div>
+          <div class="card-body p-3">
+            <div class="text-center mb-3">
+              <img id="result-{{ . }}-img" alt="{{ . }} analyzed"
+                   style="max-width:100%; max-height:240px; object-fit:contain">
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <tbody id="table-{{ . }}"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="progress mb-3" style="height:8px;">
-        <div id="result-similarity-bar" class="progress-bar" style="width:0%"></div>
-      </div>
-      <div class="row g-2 text-center" id="result-defects">
-        <!-- Populated by JS -->
-      </div>
-      <hr>
-      <div class="d-flex justify-content-between align-items-center">
-        <span class="text-muted small">Verdict</span>
-        <span id="result-verdict" class="badge">—</span>
-      </div>
+      {{ end }}
     </div>
   </div>
 
-  <!-- Pro-tier AI analysis upsell -->
-  <div class="card shadow-sm border-0 mt-3 d-none tier-free-anon-show tier-free-show tier-basic-show" id="ai-upsell">
-    <div class="card-body p-4 text-center">
-      <i class="bi bi-stars fs-3 text-warning"></i>
-      <h3 class="h6 fw-semibold mt-2">AI analysis is a Pro feature</h3>
-      <p class="text-muted small mb-3">Get a natural-language breakdown of why this card scored what it did.</p>
-      <a href="{{ "pricing/" | relURL }}" class="btn btn-sm btn-warning">Upgrade to Pro</a>
-    </div>
-  </div>
-
-  <!-- Pro-only AI analysis (populated when result comes back) -->
-  <div class="card shadow-sm border-0 mt-3 d-none tier-pro-show" id="ai-analysis">
-    <div class="card-header bg-white border-0 fw-semibold">
-      <i class="bi bi-stars text-warning me-1"></i>AI analysis
-    </div>
-    <div class="card-body" id="ai-analysis-body">
-      <!-- Filled by JS once result comes back -->
-    </div>
-  </div>
+  <div id="scan-error" class="alert alert-danger mt-3 d-none"></div>
 </div>
 {{ end }}
 
 {{ define "page-scripts" }}
+<style>
+  .scan-drop {
+    border: 2px dashed #ced4da;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .scan-drop.drop-active { border-color: #0d6efd; background: #f1f7ff; }
+  .scan-drop:hover { border-color: #0d6efd; }
+</style>
 <script>
-  async function runScan(event) {
-    event.preventDefault();
-    const cert = document.getElementById('cert-input').value.trim();
-    if (!cert) return;
+  const scanFiles = { front: null, back: null };
 
-    const btn = document.getElementById('scan-btn');
-    btn.disabled = true;
-
-    document.getElementById('scan-error').classList.add('d-none');
-    document.getElementById('scan-result').classList.add('d-none');
-    document.getElementById('quota-banner').classList.add('d-none');
-    document.getElementById('ai-analysis').classList.add('d-none');
-    document.getElementById('ai-upsell').classList.add('d-none');
-    document.getElementById('scan-loading').classList.remove('d-none');
-
-    try {
-      const result = await api('POST', '/api/scan', { cert_number: cert });
-      renderResult(result);
-    } catch (e) {
-      if (e.status === 429) {
-        document.getElementById('quota-banner').classList.remove('d-none');
-      } else {
-        const errEl = document.getElementById('scan-error');
-        errEl.textContent = 'Scan failed: ' + e.message;
-        errEl.classList.remove('d-none');
-      }
-    } finally {
-      btn.disabled = false;
-      document.getElementById('scan-loading').classList.add('d-none');
+  function handleDrop(e, side) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('drop-active');
+    if (e.dataTransfer.files && e.dataTransfer.files.length) {
+      setScanFile(e.dataTransfer.files[0], side);
     }
   }
 
-  function renderResult(r) {
-    document.getElementById('result-cert').textContent = '#' + r.cert_number;
-    document.getElementById('result-grade').textContent = 'PSA ' + (r.grade || '?');
+  function handlePick(files, side) {
+    if (files && files.length) setScanFile(files[0], side);
+  }
 
-    const pct = Math.round((r.similarity || 0) * 100);
-    document.getElementById('result-similarity-pct').textContent = pct + '%';
-    const bar = document.getElementById('result-similarity-bar');
-    bar.style.width = pct + '%';
-    bar.className = 'progress-bar ' + (pct >= 80 ? 'bg-success' : pct >= 60 ? 'bg-warning' : 'bg-danger');
+  function setScanFile(file, side) {
+    if (!file.type.startsWith('image/')) {
+      showToast('Please drop an image file', 'warning');
+      return;
+    }
+    scanFiles[side] = file;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const preview = document.getElementById(`drop-${side}-preview`);
+      preview.src = ev.target.result;
+      preview.style.display = '';
+      document.getElementById(`drop-${side}-placeholder`).style.display = 'none';
+      document.getElementById(`status-${side}`).textContent = file.name;
+    };
+    reader.readAsDataURL(file);
+    document.getElementById('btn-run').disabled = !(scanFiles.front && scanFiles.back);
+  }
 
-    const defects = r.defects || {};
-    const defectEntries = [
-      ['Centering', defects.centering],
-      ['Corners',   defects.corners],
-      ['Edges',     defects.edges],
-      ['Surface',   defects.surface],
-    ];
-    document.getElementById('result-defects').innerHTML = defectEntries.map(([label, val]) => {
-      const p = val != null ? Math.round(val * 100) : null;
-      const color = p == null ? 'text-muted' : p >= 80 ? 'text-success' : p >= 60 ? 'text-warning' : 'text-danger';
+  function openPSALookup() {
+    const cert = document.getElementById('cert-input').value.trim();
+    if (!/^\d{7,10}$/.test(cert)) {
+      showToast('Enter a 7–10 digit PSA cert number first', 'warning');
+      return;
+    }
+    window.open(`https://www.psacard.com/cert/${cert}`, '_blank', 'noopener,noreferrer');
+  }
+
+  function loadImage(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  async function runScan() {
+    if (!(scanFiles.front && scanFiles.back)) return;
+    const btn = document.getElementById('btn-run');
+    const status = document.getElementById('run-status');
+    const errEl = document.getElementById('scan-error');
+    errEl.classList.add('d-none');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analyzing…';
+    status.textContent = 'Loading images…';
+
+    const cropMode = document.querySelector('input[name="crop-mode"]:checked').value;
+
+    try {
+      const [frontImg, backImg] = await Promise.all([
+        loadImage(scanFiles.front),
+        loadImage(scanFiles.back),
+      ]);
+
+      status.textContent = 'Running CV on front…';
+      const frontResult = runCenteringCV(frontImg, cropMode);
+      status.textContent = 'Running CV on back…';
+      const backResult = runCenteringCV(backImg, cropMode);
+
+      renderResults(frontResult, backResult);
+      status.textContent = 'Done.';
+
+      // Persist for signed-in users; fire-and-forget.
+      saveForSignedIn({
+        cert_number: document.getElementById('cert-input').value.trim(),
+        defects: defectsPayload(frontResult, backResult),
+        similarity: null,
+        ml_status: 'pending',
+      });
+    } catch (e) {
+      errEl.textContent = 'Analyze failed: ' + e.message;
+      errEl.classList.remove('d-none');
+      status.textContent = '';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-crosshair me-1"></i>Analyze';
+    }
+  }
+
+  // ── Scoring ────────────────────────────────────────────────────────────────
+  // Each measurement's ratio string (e.g. "52/48") → offset from 50/50 in [0, 0.5].
+  function ratioOffset(ratioStr) {
+    const m = /^(\d+)\/(\d+)$/.exec(ratioStr || '');
+    if (!m) return null;
+    const a = parseInt(m[1], 10), b = parseInt(m[2], 10);
+    if (a + b === 0) return null;
+    return Math.abs(a / (a + b) - 0.5);
+  }
+
+  function centeringScore(measurements) {
+    if (!measurements || !measurements.length) return null;
+    const offsets = measurements.map(m => ratioOffset(m.ratio)).filter(x => x != null);
+    if (!offsets.length) return null;
+    const avg = offsets.reduce((a, b) => a + b, 0) / offsets.length;
+    return Math.max(0, 1 - avg * 2); // map [0, 0.5] → [1, 0]
+  }
+
+  function scoreLabel(s) {
+    if (s == null) return 'unknown';
+    if (s >= 0.85) return 'good';
+    if (s >= 0.65) return 'fair';
+    return 'poor';
+  }
+
+  function scoreColor(s) {
+    if (s == null) return 'text-muted';
+    if (s >= 0.85) return 'text-success';
+    if (s >= 0.65) return 'text-warning';
+    return 'text-danger';
+  }
+
+  function scoreBadgeClass(s) {
+    if (s == null) return 'bg-secondary';
+    if (s >= 0.85) return 'bg-success';
+    if (s >= 0.65) return 'bg-warning text-dark';
+    return 'bg-danger';
+  }
+
+  function verdictText(s) {
+    if (s == null) return '—';
+    if (s >= 0.85) return 'Strong candidate';
+    if (s >= 0.65) return 'Maybe';
+    return 'Skip';
+  }
+
+  // ── Rendering ──────────────────────────────────────────────────────────────
+  function renderResults(front, back) {
+    const frontScore = centeringScore(front.measurements);
+    const backScore = centeringScore(back.measurements);
+    const overall = (frontScore != null && backScore != null)
+      ? (frontScore + backScore) / 2
+      : (frontScore ?? backScore);
+
+    document.getElementById('score-front').textContent = frontScore != null
+      ? Math.round(frontScore * 100) + '%' : '—';
+    document.getElementById('score-front').className = 'fw-semibold ' + scoreColor(frontScore);
+    document.getElementById('score-back').textContent = backScore != null
+      ? Math.round(backScore * 100) + '%' : '—';
+    document.getElementById('score-back').className = 'fw-semibold ' + scoreColor(backScore);
+
+    document.getElementById('overall-score').textContent = overall != null
+      ? Math.round(overall * 100) + '%' : '—';
+    document.getElementById('overall-score').className = 'fs-4 fw-semibold ' + scoreColor(overall);
+
+    const verdict = document.getElementById('verdict-badge');
+    verdict.textContent = verdictText(overall);
+    verdict.className = 'badge fs-5 mt-1 ' + scoreBadgeClass(overall);
+
+    renderSide('front', front);
+    renderSide('back', back);
+
+    document.getElementById('results').classList.remove('d-none');
+  }
+
+  function renderSide(side, result) {
+    // Image (the CV pipeline returns a cropped base64 PNG — show that so the
+    // user sees exactly what the model analyzed).
+    const img = document.getElementById(`result-${side}-img`);
+    img.src = 'data:image/png;base64,' + result.base_png_b64;
+
+    // Measurements table
+    const labels = {
+      lr_top:   'Left / right at top',
+      lr_bot:   'Left / right at bottom',
+      tb_left:  'Top / bottom at left',
+      tb_right: 'Top / bottom at right',
+    };
+    const tbody = document.getElementById(`table-${side}`);
+    if (!result.measurements || !result.measurements.length) {
+      tbody.innerHTML = `<tr><td class="text-muted small">
+        Couldn't detect card edges reliably. Try a higher-resolution image.
+      </td></tr>`;
+      return;
+    }
+    tbody.innerHTML = result.measurements.map(m => {
+      const off = ratioOffset(m.ratio);
+      const color = off == null ? 'text-muted'
+                  : off <= 0.02 ? 'text-success'
+                  : off <= 0.05 ? 'text-warning'
+                                : 'text-danger';
       return `
-        <div class="col-6 col-md-3">
-          <div class="small text-muted">${label}</div>
-          <div class="fw-semibold ${color}">${p == null ? '—' : p + '%'}</div>
-        </div>`;
+        <tr>
+          <td class="text-muted small">${labels[m.position] || m.position}</td>
+          <td class="font-monospace fw-semibold text-end ${color}">${m.ratio}</td>
+        </tr>`;
     }).join('');
+  }
 
-    const verdictEl = document.getElementById('result-verdict');
-    if (pct >= 80) { verdictEl.textContent = 'Strong candidate'; verdictEl.className = 'badge bg-success'; }
-    else if (pct >= 60) { verdictEl.textContent = 'Maybe'; verdictEl.className = 'badge bg-warning text-dark'; }
-    else { verdictEl.textContent = 'Skip'; verdictEl.className = 'badge bg-danger'; }
+  // ── Backend save (signed-in only) ──────────────────────────────────────────
+  function defectsPayload(front, back) {
+    const fScore = centeringScore(front.measurements);
+    const bScore = centeringScore(back.measurements);
+    const overall = (fScore != null && bScore != null)
+      ? (fScore + bScore) / 2
+      : (fScore ?? bScore);
+    return {
+      centering: { score: overall, label: scoreLabel(overall) },
+      corners:   { label: 'unknown' },
+      edges:     { label: 'unknown' },
+      surface:   { label: 'unknown' },
+    };
+  }
 
-    document.getElementById('scan-result').classList.remove('d-none');
-
-    const tier = getCurrentTier();
-    if (tier === 'pro' && r.ai_analysis) {
-      document.getElementById('ai-analysis-body').textContent = r.ai_analysis;
-      document.getElementById('ai-analysis').classList.remove('d-none');
-    } else if (tier !== 'pro') {
-      document.getElementById('ai-upsell').classList.remove('d-none');
+  async function saveForSignedIn(payload) {
+    const banner = document.getElementById('save-banner');
+    const signedIn = window._firebaseReady && firebase.auth().currentUser;
+    if (!signedIn) {
+      banner.innerHTML = `
+        <div class="alert alert-info mb-0 mt-3 small">
+          <i class="bi bi-person-plus me-1"></i>
+          Not signed in — this scan won't be saved.
+          <a href="#" onclick="signInWithGoogle(); return false;">Sign up free</a> to keep history.
+        </div>`;
+      return;
+    }
+    banner.innerHTML = '<div class="text-muted small mt-3"><span class="spinner-border spinner-border-sm me-1"></span>Saving to history…</div>';
+    try {
+      await api('POST', '/api/scan/save', payload);
+      banner.innerHTML = `<div class="text-success small mt-3">
+        <i class="bi bi-check-circle me-1"></i>Saved to your history.
+        <a href="{{ "account/" | relURL }}" class="ms-2">View history</a>
+      </div>`;
+    } catch (e) {
+      banner.innerHTML = `<div class="text-warning small mt-3">
+        <i class="bi bi-exclamation-triangle me-1"></i>Couldn't save to history: ${e.message}
+      </div>`;
     }
   }
 </script>
