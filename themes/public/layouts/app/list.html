@@ -1,5 +1,5 @@
 {{ define "main" }}
-<div class="container py-4" style="max-width: 1100px;">
+<div class="container-xxl py-4">
   <div class="text-center mb-4">
     <h1 class="h3 fw-semibold">Scan a card</h1>
     <p class="text-muted mb-0">
@@ -41,7 +41,7 @@
 
           <!-- Zoom nav buttons -->
           <div class="zoom-nav d-none mt-2" id="zoom-nav-{{ . }}">
-            <div class="btn-group btn-group-sm w-100" role="group" aria-label="Zoom to corner">
+            <div class="btn-group btn-group-sm w-100" role="group" aria-label="Zoom">
               <button type="button" class="btn btn-outline-dark zoom-btn" data-side="{{ . }}" data-zoom="fit" title="Fit whole card (0)">
                 <i class="bi bi-fullscreen-exit"></i> Fit
               </button>
@@ -57,9 +57,15 @@
               <button type="button" class="btn btn-outline-dark zoom-btn" data-side="{{ . }}" data-zoom="bl" title="Bottom-left (4)">
                 <i class="bi bi-arrow-down-left"></i> BL
               </button>
+              <button type="button" class="btn btn-outline-dark zoom-step-btn" data-side="{{ . }}" data-step="out" title="Zoom out (−)">
+                <i class="bi bi-zoom-out"></i>
+              </button>
+              <button type="button" class="btn btn-outline-dark zoom-step-btn" data-side="{{ . }}" data-step="in" title="Zoom in (+)">
+                <i class="bi bi-zoom-in"></i>
+              </button>
             </div>
             <div class="form-text">
-              Hotkeys: <kbd>0</kbd> fit · <kbd>1</kbd>-<kbd>4</kbd> corners · <kbd>[</kbd> <kbd>]</kbd> cycle
+              Scroll wheel to zoom · <kbd>0</kbd> fit · <kbd>1</kbd>-<kbd>4</kbd> corners · <kbd>+</kbd>/<kbd>−</kbd> step
             </div>
           </div>
 
@@ -184,6 +190,9 @@
     cursor: grab;
     touch-action: none;
   }
+  @media (min-width: 992px) {
+    .scan-canvas { height: calc(100vh - 260px); min-height: 600px; }
+  }
   .scan-canvas.dragging { cursor: grabbing; }
   .zoom-btn.active {
     background: #212529; color: #fff; border-color: #212529;
@@ -219,6 +228,9 @@
   };
   const ZOOM_ORDER = ['fit', 'tl', 'tr', 'br', 'bl'];
   const CORNER_ZOOM = 3.0; // scale multiplier from fit-scale when viewing a corner
+  const WHEEL_ZOOM_STEP = 1.15;   // per wheel tick
+  const WHEEL_ZOOM_MIN = 0.5;     // min scale as multiple of fitScale
+  const WHEEL_ZOOM_MAX = 30;      // max scale as multiple of fitScale
 
   // Control-point model: each line has two endpoints at ~10%/90% of its axis.
   const CTRL_LO = 0.10, CTRL_HI = 0.90;
@@ -619,6 +631,44 @@
     canvas.addEventListener('touchstart', (e) => e.touches.length && start(e.touches[0]), { passive: false });
     canvas.addEventListener('touchmove',  (e) => e.touches.length && move(e.touches[0]),  { passive: false });
     canvas.addEventListener('touchend', end);
+
+    canvas.addEventListener('wheel', (evt) => {
+      if (!sideState[side].cropCanvas) return;
+      evt.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const cx = (evt.clientX - rect.left) * dpr;
+      const cy = (evt.clientY - rect.top) * dpr;
+      const factor = evt.deltaY < 0 ? WHEEL_ZOOM_STEP : 1 / WHEEL_ZOOM_STEP;
+      zoomBy(side, factor, cx, cy);
+    }, { passive: false });
+  }
+
+  // Apply a scale multiplier, keeping the point (cx, cy) in canvas pixels under
+  // the cursor. Falls back to the canvas center if no focal point is given.
+  function zoomBy(side, factor, cx, cy) {
+    const state = sideState[side];
+    const canvas = document.getElementById(`canvas-${side}`);
+    if (!state.cropCanvas) return;
+    if (cx == null) cx = canvas.width / 2;
+    if (cy == null) cy = canvas.height / 2;
+    const t = state.transform;
+    const imgX = (cx - t.tx) / t.scale;
+    const imgY = (cy - t.ty) / t.scale;
+    const minScale = state.fitScale * WHEEL_ZOOM_MIN;
+    const maxScale = state.fitScale * WHEEL_ZOOM_MAX;
+    const newScale = Math.max(minScale, Math.min(maxScale, t.scale * factor));
+    if (newScale === t.scale) return;
+    state.transform = {
+      scale: newScale,
+      tx: cx - imgX * newScale,
+      ty: cy - imgY * newScale,
+    };
+    state.activeZoom = 'custom';
+    for (const btn of document.querySelectorAll(`.zoom-btn[data-side="${side}"]`)) {
+      btn.classList.remove('active');
+    }
+    renderSide(side);
   }
 
   function clampLineToImage(side, ctrl) {
@@ -664,7 +714,12 @@
   // ── Zoom button bindings + hotkeys ─────────────────────────────────────────
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('.zoom-btn');
-    if (btn) setZoom(btn.dataset.side, btn.dataset.zoom);
+    if (btn) { setZoom(btn.dataset.side, btn.dataset.zoom); return; }
+    const stepBtn = e.target.closest('.zoom-step-btn');
+    if (stepBtn) {
+      const factor = stepBtn.dataset.step === 'in' ? WHEEL_ZOOM_STEP : 1 / WHEEL_ZOOM_STEP;
+      zoomBy(stepBtn.dataset.side, factor);
+    }
   });
 
   // Hotkeys apply to whichever side the cursor is over, or to all loaded
@@ -691,6 +746,10 @@
       e.preventDefault(); sides.forEach(s => cycleZoom(s, +1));
     } else if (e.key === '[') {
       e.preventDefault(); sides.forEach(s => cycleZoom(s, -1));
+    } else if (e.key === '+' || e.key === '=') {
+      e.preventDefault(); sides.forEach(s => zoomBy(s, WHEEL_ZOOM_STEP));
+    } else if (e.key === '-' || e.key === '_') {
+      e.preventDefault(); sides.forEach(s => zoomBy(s, 1 / WHEEL_ZOOM_STEP));
     }
   });
 
@@ -699,7 +758,9 @@
     for (const s of ['front', 'back']) {
       if (sideState[s].cropCanvas) {
         sizeCanvas(s);
-        setZoom(s, sideState[s].activeZoom);
+        // 'custom' (mousewheel) zoom has no preset — reset to fit on resize.
+        const level = ZOOM_ORDER.includes(sideState[s].activeZoom) ? sideState[s].activeZoom : 'fit';
+        setZoom(s, level);
       }
     }
   });
