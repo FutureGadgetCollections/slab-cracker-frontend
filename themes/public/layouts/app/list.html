@@ -42,19 +42,19 @@
           <!-- Zoom nav buttons -->
           <div class="zoom-nav d-none mt-2" id="zoom-nav-{{ . }}">
             <div class="btn-group btn-group-sm w-100" role="group" aria-label="Zoom to corner">
-              <button type="button" class="btn btn-outline-secondary zoom-btn" data-side="{{ . }}" data-zoom="fit" title="Fit whole card (0)">
+              <button type="button" class="btn btn-outline-dark zoom-btn" data-side="{{ . }}" data-zoom="fit" title="Fit whole card (0)">
                 <i class="bi bi-fullscreen-exit"></i> Fit
               </button>
-              <button type="button" class="btn btn-outline-secondary zoom-btn" data-side="{{ . }}" data-zoom="tl" title="Top-left (1)">
+              <button type="button" class="btn btn-outline-dark zoom-btn" data-side="{{ . }}" data-zoom="tl" title="Top-left (1)">
                 <i class="bi bi-arrow-up-left"></i> TL
               </button>
-              <button type="button" class="btn btn-outline-secondary zoom-btn" data-side="{{ . }}" data-zoom="tr" title="Top-right (2)">
+              <button type="button" class="btn btn-outline-dark zoom-btn" data-side="{{ . }}" data-zoom="tr" title="Top-right (2)">
                 <i class="bi bi-arrow-up-right"></i> TR
               </button>
-              <button type="button" class="btn btn-outline-secondary zoom-btn" data-side="{{ . }}" data-zoom="br" title="Bottom-right (3)">
+              <button type="button" class="btn btn-outline-dark zoom-btn" data-side="{{ . }}" data-zoom="br" title="Bottom-right (3)">
                 <i class="bi bi-arrow-down-right"></i> BR
               </button>
-              <button type="button" class="btn btn-outline-secondary zoom-btn" data-side="{{ . }}" data-zoom="bl" title="Bottom-left (4)">
+              <button type="button" class="btn btn-outline-dark zoom-btn" data-side="{{ . }}" data-zoom="bl" title="Bottom-left (4)">
                 <i class="bi bi-arrow-down-left"></i> BL
               </button>
             </div>
@@ -66,8 +66,8 @@
           <!-- Measurements -->
           <div class="mt-3 d-none" id="meas-wrap-{{ . }}">
             <div class="d-flex justify-content-between align-items-baseline mb-1">
-              <span class="text-muted small">Centering</span>
-              <span class="fw-semibold" id="score-{{ . }}">—</span>
+              <span class="text-muted small">Measurements</span>
+              <span class="text-muted small" id="worst-{{ . }}"></span>
             </div>
             <table class="table table-sm mb-0">
               <tbody id="meas-{{ . }}"></tbody>
@@ -112,20 +112,38 @@
     </div>
   </div>
 
-  <!-- Verdict + save -->
+  <!-- Centering grades + save -->
   <div class="card shadow-sm border-0 mt-3 d-none" id="verdict-card">
-    <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-      <div>
-        <div class="text-muted small">Overall verdict</div>
-        <div id="verdict-badge" class="badge fs-5 mt-1">—</div>
+    <div class="card-body p-4">
+      <div class="text-muted small mb-2">Centering grade (front + back combined)</div>
+      <div class="row g-3" id="grade-row">
+        <div class="col-md-4">
+          <div class="p-3 border rounded text-center">
+            <div class="text-muted small fw-medium">PSA</div>
+            <div class="h4 fw-bold mb-0 mt-1" id="grade-psa">—</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 border rounded text-center">
+            <div class="text-muted small fw-medium">BGS</div>
+            <div class="h4 fw-bold mb-0 mt-1" id="grade-bgs">—</div>
+            <div class="text-muted" style="font-size: 11px;">centering subgrade</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="p-3 border rounded text-center">
+            <div class="text-muted small fw-medium">CGC</div>
+            <div class="h4 fw-bold mb-0 mt-1" id="grade-cgc">—</div>
+          </div>
+        </div>
       </div>
-      <div class="text-end">
-        <div class="text-muted small">Combined centering</div>
-        <div class="fs-4 fw-semibold" id="overall-score">—</div>
-      </div>
-      <div class="w-100 d-flex justify-content-between align-items-center gap-2 mt-2">
+
+      <div class="text-muted small mt-3" id="grade-detail"></div>
+
+      <hr>
+      <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
         <div class="text-muted small">
-          Drag endpoint handles to angle the line. Drag the middle dot to slide the whole line.
+          Drag endpoint handles to angle. Drag the middle dot to slide.
         </div>
         <div>
           <button class="btn btn-primary btn-sm" id="btn-save" onclick="saveScan()" disabled>
@@ -134,7 +152,7 @@
           <span id="save-status" class="text-muted small ms-2"></span>
         </div>
       </div>
-      <div class="w-100 alert alert-info mb-0 py-2 small d-none" id="signup-cta">
+      <div class="alert alert-info mb-0 mt-3 py-2 small d-none" id="signup-cta">
         <i class="bi bi-person-plus me-1"></i>
         Not signed in — this scan won't be saved.
         <a href="#" onclick="signInWithGoogle(); return false;">Sign up free</a> to keep history.
@@ -168,12 +186,20 @@
   }
   .scan-canvas.dragging { cursor: grabbing; }
   .zoom-btn.active {
-    background: #0d6efd; color: #fff; border-color: #0d6efd;
+    background: #212529; color: #fff; border-color: #212529;
   }
   kbd {
-    padding: 1px 4px; font-size: 11px; background: #f1f3f5;
-    border: 1px solid #ced4da; border-radius: 3px;
+    padding: 1px 5px; font-size: 11px;
+    background: #212529; color: #fff;
+    border: 1px solid #212529; border-radius: 3px;
   }
+  .grade-fail  { color: #6c757d; }
+  .grade-10    { color: #198754; }  /* PSA/BGS/CGC 10  — green */
+  .grade-95    { color: #198754; }
+  .grade-9     { color: #0d6efd; }  /* 9 — blue */
+  .grade-85    { color: #6610f2; }
+  .grade-8     { color: #d63384; }
+  .grade-low   { color: #dc3545; }  /* below 8 — red */
 </style>
 <script>
   // ── Constants ──────────────────────────────────────────────────────────────
@@ -455,10 +481,17 @@
         <td class="text-end font-monospace fw-semibold ${color}">${m.ratio}</td></tr>`;
     }).join('');
 
-    const score = sideCenteringScore(meas);
-    const el = document.getElementById(`score-${side}`);
-    el.textContent = score != null ? Math.round(score*100) + '%' : '—';
-    el.className = 'fw-semibold ' + scoreColor(score);
+    // Worst-ratio label (this side's driving measurement)
+    const pcts = meas.map(m => ({ pos: m.position, p: largerSidePct(m.ratio), ratio: m.ratio }))
+                     .filter(x => x.p != null);
+    const worstEl = document.getElementById(`worst-${side}`);
+    if (pcts.length) {
+      pcts.sort((a, b) => b.p - a.p);
+      worstEl.textContent = `Worst: ${pcts[0].ratio}`;
+    } else {
+      worstEl.textContent = '';
+    }
+
     updateVerdict();
   }
 
@@ -469,30 +502,71 @@
     const a = +m[1], b = +m[2]; if (a+b === 0) return null;
     return Math.abs(a/(a+b) - 0.5);
   }
-  function sideCenteringScore(meas) {
+
+  // Larger-side percentage of a ratio string. "52/48" → 52; "85/15" → 85.
+  // This is how PSA/BGS/CGC publish their centering cutoffs — always the
+  // larger side vs. the smaller.
+  function largerSidePct(r) {
+    const m = /^(\d+)\/(\d+)$/.exec(r || '');
+    if (!m) return null;
+    return Math.max(+m[1], +m[2]);
+  }
+
+  // Worst (highest "larger side %") across all ratios for one side. A PSA 9
+  // needs 60/40 front and 90/10 back — we check against the worst on that side.
+  function worstPct(meas) {
     if (!meas || !meas.length) return null;
-    const offs = meas.map(m => ratioOffset(m.ratio)).filter(x => x != null);
-    if (!offs.length) return null;
-    const avg = offs.reduce((a,b)=>a+b,0) / offs.length;
-    return Math.max(0, 1 - avg*2);
+    const pcts = meas.map(m => largerSidePct(m.ratio)).filter(x => x != null);
+    return pcts.length ? Math.max(...pcts) : null;
   }
-  function scoreColor(s) {
-    if (s == null) return 'text-muted';
-    if (s >= 0.85) return 'text-success';
-    if (s >= 0.65) return 'text-warning';
-    return 'text-danger';
+
+  // ── Grading standards ──────────────────────────────────────────────────────
+  // Centering cutoffs published by each grading company. Tiers listed best→worst;
+  // a card gets the highest grade where BOTH sides' worst ratio meets the cutoff.
+  // Numbers are "larger side %" — e.g. PSA 9 requires ≤ 60 on front and ≤ 90 on back.
+  const STANDARDS = {
+    psa: [
+      { grade: 'PSA 10', front: 55, back: 75, cls: 'grade-10' },
+      { grade: 'PSA 9',  front: 60, back: 90, cls: 'grade-9'  },
+      { grade: 'PSA 8',  front: 65, back: 90, cls: 'grade-8'  },
+      { grade: 'PSA 7',  front: 70, back: 90, cls: 'grade-low' },
+      { grade: 'PSA 6',  front: 80, back: 95, cls: 'grade-low' },
+    ],
+    bgs: [
+      { grade: 'BGS 10',  front: 50, back: 50, cls: 'grade-10' },
+      { grade: 'BGS 9.5', front: 55, back: 60, cls: 'grade-95' },
+      { grade: 'BGS 9',   front: 60, back: 65, cls: 'grade-9'  },
+      { grade: 'BGS 8.5', front: 65, back: 70, cls: 'grade-85' },
+      { grade: 'BGS 8',   front: 70, back: 75, cls: 'grade-8'  },
+      { grade: 'BGS 7',   front: 80, back: 85, cls: 'grade-low' },
+    ],
+    cgc: [
+      { grade: 'CGC 10',  front: 55, back: 70, cls: 'grade-10' },
+      { grade: 'CGC 9.5', front: 60, back: 80, cls: 'grade-95' },
+      { grade: 'CGC 9',   front: 65, back: 85, cls: 'grade-9'  },
+      { grade: 'CGC 8.5', front: 70, back: 90, cls: 'grade-85' },
+      { grade: 'CGC 8',   front: 75, back: 95, cls: 'grade-8'  },
+    ],
+  };
+
+  function gradeForCompany(company, frontWorst, backWorst) {
+    if (frontWorst == null || backWorst == null) return null;
+    for (const t of STANDARDS[company]) {
+      if (frontWorst <= t.front && backWorst <= t.back) return t;
+    }
+    // Below the weakest tier — indicate which side is failing.
+    const weak = STANDARDS[company][STANDARDS[company].length - 1];
+    const failSide = frontWorst > weak.front ? 'front' : 'back';
+    return { grade: `Below ${weak.grade}`, cls: 'grade-fail', failSide };
   }
-  function scoreBadge(s) {
-    if (s == null) return 'bg-secondary';
-    if (s >= 0.85) return 'bg-success';
-    if (s >= 0.65) return 'bg-warning text-dark';
-    return 'bg-danger';
-  }
-  function verdictText(s) {
-    if (s == null) return '—';
-    if (s >= 0.85) return 'Strong candidate';
-    if (s >= 0.65) return 'Maybe';
-    return 'Skip';
+
+  // Returns { psa, bgs, cgc } with each entry either a tier object or null.
+  function allGrades(frontWorst, backWorst) {
+    return {
+      psa: gradeForCompany('psa', frontWorst, backWorst),
+      bgs: gradeForCompany('bgs', frontWorst, backWorst),
+      cgc: gradeForCompany('cgc', frontWorst, backWorst),
+    };
   }
 
   // ── Mouse / touch drag ─────────────────────────────────────────────────────
@@ -631,46 +705,63 @@
   });
 
   // ── Verdict + save ─────────────────────────────────────────────────────────
-  function updateVerdict() {
-    const scores = {};
+  // Returns { frontWorst, backWorst, frontMeas, backMeas }. null-worst when
+  // the side hasn't loaded or has no computable measurements.
+  function currentCenteringState() {
+    const out = { frontWorst: null, backWorst: null, frontMeas: [], backMeas: [] };
     for (const s of ['front', 'back']) {
       const st = sideState[s];
       if (!st.cropCanvas || !st.lines) continue;
-      scores[s] = sideCenteringScore(computeMeasurements(st.lines, st.cropCanvas.width, st.cropCanvas.height));
+      const meas = computeMeasurements(st.lines, st.cropCanvas.width, st.cropCanvas.height);
+      out[s + 'Meas'] = meas;
+      out[s + 'Worst'] = worstPct(meas);
     }
-    if (scores.front == null && scores.back == null) {
+    return out;
+  }
+
+  function updateVerdict() {
+    const st = currentCenteringState();
+    const both = st.frontWorst != null && st.backWorst != null;
+
+    // Hide the grades card until both sides have something.
+    if (!both) {
       document.getElementById('verdict-card').classList.add('d-none');
       return;
     }
     document.getElementById('verdict-card').classList.remove('d-none');
-    const both = scores.front != null && scores.back != null;
-    const overall = both ? (scores.front + scores.back) / 2 : (scores.front ?? scores.back);
 
-    document.getElementById('overall-score').textContent = overall != null ? Math.round(overall*100)+'%' : '—';
-    document.getElementById('overall-score').className = 'fs-4 fw-semibold ' + scoreColor(overall);
-    const badge = document.getElementById('verdict-badge');
-    badge.textContent = verdictText(overall);
-    badge.className = 'badge fs-5 mt-1 ' + scoreBadge(overall);
+    const grades = allGrades(st.frontWorst, st.backWorst);
+    for (const company of ['psa', 'bgs', 'cgc']) {
+      const el = document.getElementById(`grade-${company}`);
+      const g = grades[company];
+      if (!g) { el.textContent = '—'; el.className = 'h4 fw-bold mb-0 mt-1'; continue; }
+      el.textContent = g.grade;
+      el.className = 'h4 fw-bold mb-0 mt-1 ' + g.cls;
+    }
+
+    // Detail line: what's driving the grade.
+    const ratio = (side) =>
+      (st[side + 'Meas'].find(m => largerSidePct(m.ratio) === st[side + 'Worst']) || {}).ratio;
+    const detail = `Worst ratios: front ${ratio('front') || '—'}, back ${ratio('back') || '—'}. `
+      + `Card grade is capped by whichever side is further from 50/50 relative to each company's cutoff.`;
+    document.getElementById('grade-detail').textContent = detail;
 
     const signedIn = window._firebaseReady && firebase.auth().currentUser;
-    document.getElementById('btn-save').disabled = !(signedIn && both);
+    document.getElementById('btn-save').disabled = !signedIn;
     document.getElementById('signup-cta').classList.toggle('d-none', !!signedIn);
   }
 
   async function saveScan() {
-    const s = (side) => {
-      const st = sideState[side];
-      return (st.cropCanvas && st.lines)
-        ? sideCenteringScore(computeMeasurements(st.lines, st.cropCanvas.width, st.cropCanvas.height))
-        : null;
-    };
-    const f = s('front'), b = s('back');
-    const overall = (f != null && b != null) ? (f + b) / 2 : (f ?? b);
+    const st = currentCenteringState();
+    const grades = (st.frontWorst != null && st.backWorst != null)
+      ? allGrades(st.frontWorst, st.backWorst)
+      : null;
 
     const status = document.getElementById('save-status');
     const btn = document.getElementById('btn-save');
     btn.disabled = true;
     status.textContent = 'Saving…';
+
     try {
       await api('POST', '/api/scan/save', {
         cert_number: document.getElementById('cert-input').value.trim(),
@@ -678,8 +769,14 @@
         ml_status: 'pending',
         defects: {
           centering: {
-            score: overall,
-            label: overall == null ? 'unknown' : overall >= 0.85 ? 'good' : overall >= 0.65 ? 'fair' : 'poor',
+            front_worst_pct: st.frontWorst,
+            back_worst_pct:  st.backWorst,
+            grades: grades && {
+              psa: grades.psa && grades.psa.grade,
+              bgs: grades.bgs && grades.bgs.grade,
+              cgc: grades.cgc && grades.cgc.grade,
+            },
+            label: grades && grades.psa ? grades.psa.grade : 'unknown',
           },
           corners: { label: 'unknown' },
           edges:   { label: 'unknown' },
