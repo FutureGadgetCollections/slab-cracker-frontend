@@ -19,6 +19,7 @@
     storageBucket:     "{{ .Site.Params.firebase.storage.bucket }}",
     messagingSenderId: "{{ .Site.Params.firebase.messaging.sender.id }}",
     appId:             "{{ .Site.Params.firebase.app.id }}",
+    measurementId:     "{{ .Site.Params.firebase.measurement.id }}",
   };
   window.STRIPE_CONFIG = {
     publishableKey: "{{ .Site.Params.stripe.publishableKey }}",

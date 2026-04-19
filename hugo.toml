@@ -24,6 +24,8 @@ theme = "public"
     id = ""
   [params.firebase.app]
     id = ""
+  [params.firebase.measurement]
+    id = ""
 
   # Stripe publishable key — safe for the browser
   [params.stripe]
