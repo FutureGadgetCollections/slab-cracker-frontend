@@ -30,7 +30,7 @@ bq show --schema fg-tcglabs:grading.scan_history
 Use the existing `slab-cracker-auth` Firebase project.
 
 1. In the Firebase console → **Authentication → Sign-in method**, enable **Google** and (optionally) **Email/Password**.
-2. **Authentication → Settings → Authorized domains**: add your GH Pages domain (e.g. `futuregadgetcollections.github.io`) and any custom domain you plan to use.
+2. **Authentication → Settings → Authorized domains**: add `gem-hunter.futuregadgetlabs.com` (the custom subdomain this site deploys to). You can leave `futuregadgetcollections.github.io` in the list too as a fallback during DNS propagation.
 3. **Project settings → Your apps**: grab the web config. The six values go into backend and frontend env vars.
 
 ### 1c. Cloud Run service account permissions
@@ -192,7 +192,7 @@ frontend's GH Actions vars next.
 In the `slab-cracker-frontend` repo settings → **Secrets and variables → Actions**:
 
 **Variables:**
-- `PAGES_BASE_URL` — e.g. `https://futuregadgetcollections.github.io/slab-cracker-frontend/` or your custom domain
+- `PAGES_BASE_URL` — `https://gem-hunter.futuregadgetlabs.com/` (trailing slash matters for Hugo's baseURL handling). Fallback for the un-custom-domained site is `https://futuregadgetcollections.github.io/slab-cracker-frontend/`.
 - `HUGO_PARAMS_FIREBASE_AUTH_DOMAIN`
 - `HUGO_PARAMS_FIREBASE_PROJECT_ID`
 - `HUGO_PARAMS_FIREBASE_STORAGE_BUCKET`
@@ -212,6 +212,26 @@ In the `slab-cracker-frontend` repo settings → **Secrets and variables → Act
 Settings → Pages → Build and deployment → Source: **GitHub Actions**.
 
 Push any commit to `main` (or re-run the existing `Deploy to GitHub Pages` workflow). Deploy runs in ~1 minute.
+
+### 5c. Wire the `gem-hunter.futuregadgetlabs.com` subdomain
+
+The repo already ships a `static/CNAME` file containing `gem-hunter.futuregadgetlabs.com`, so every Hugo build copies it into `public/CNAME` and the Pages deploy picks it up automatically. One-time setup:
+
+1. **DNS** — at the registrar/host for `futuregadgetlabs.com`, add a record:
+   - Type: `CNAME`
+   - Name: `gem-hunter`
+   - Value: `futuregadgetcollections.github.io`
+   - TTL: 300 (or whatever the default is)
+2. **GitHub Pages** — repo Settings → Pages → **Custom domain** = `gem-hunter.futuregadgetlabs.com`. Tick **Enforce HTTPS** once the Let's Encrypt cert finishes provisioning (takes a few minutes after DNS resolves).
+3. **Firebase Authorized domains** — already covered in §1b; make sure `gem-hunter.futuregadgetlabs.com` is in the list before you try signing in on the live site, otherwise the OAuth popup will 400.
+4. **Backend CORS** — in `slab-cracker-backend`, add `https://gem-hunter.futuregadgetlabs.com` to the allowed origins list alongside (or replacing) the `*.github.io` entry.
+
+Verifying DNS end-to-end:
+
+```bash
+dig +short gem-hunter.futuregadgetlabs.com       # should resolve to a GH Pages A record via the CNAME
+curl -I https://gem-hunter.futuregadgetlabs.com/  # 200 OK, x-github-request-id header present
+```
 
 ### 5c. End-to-end smoke
 

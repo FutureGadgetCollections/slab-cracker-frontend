@@ -1,3 +1,6 @@
+# Production baseURL is "https://gem-hunter.futuregadgetlabs.com/".
+# It's set at build time by the GH Actions workflow via --baseURL "$PAGES_BASE_URL",
+# so leave this as "/" for local `hugo server` dev.
 baseURL = "/"
 languageCode = "en-us"
 title = "Gem Hunter"
