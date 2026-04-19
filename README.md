@@ -1,12 +1,12 @@
 # slab-cracker-frontend
 
-Public-facing consumer frontend for **Slab Cracker** — identify high-quality PSA 9 graded cards that are strong candidates for re-submission to achieve a PSA 10.
+Public-facing consumer frontend for **Gem Hunter** — identify high-quality PSA 9 graded cards that are strong candidates for re-submission to achieve a PSA 10.
 
 > This is the consumer product. The sibling `slab-cracker-frontend-admin` is an internal ops/admin UI. The older `slab-cracker-frontend-public` (read-only results viewer) is **superseded** by this repo.
 
 ## What users get
 
-Users submit a PSA cert number, and Slab Cracker:
+Users submit a PSA cert number, and Gem Hunter:
 
 1. Fetches the official PSA certification scans (front/back)
 2. Compares them to reference PSA 10 / BGS Black Label scans using ML

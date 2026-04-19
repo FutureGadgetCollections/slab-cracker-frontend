@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Hugo-based **public-facing consumer frontend** for Slab Cracker — subscription-gated PSA cert analysis. Deployed to GitHub Pages; reads static JSON from the data repo and writes/scans via the backend API, which enforces tier-based access.
+Hugo-based **public-facing consumer frontend** for Gem Hunter — subscription-gated PSA cert analysis. Deployed to GitHub Pages; reads static JSON from the data repo and writes/scans via the backend API, which enforces tier-based access. (The repo name remains `slab-cracker-frontend`; "Gem Hunter" is the public brand.)
 
 **This repo supersedes `slab-cracker-frontend-public`** (a deprecated read-only results viewer). The admin UI in `slab-cracker-frontend-admin` is a separate, internal-only tool.
 

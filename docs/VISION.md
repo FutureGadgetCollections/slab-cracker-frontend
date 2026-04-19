@@ -6,7 +6,7 @@ Graded card collectors pay large premiums for a **PSA 10** over a **PSA 9** — 
 
 The problem is evaluation. PSA 9s vary wildly in quality. Without a trained eye and reference images, picking good re-submission candidates is guesswork. Most collectors can't do it reliably, and the ones who can spend hours poring over scans manually.
 
-**Slab Cracker automates that evaluation.** Given a PSA 9 cert number, the system fetches the official PSA scans, compares them against a reference set of known PSA 10s using a Siamese / contrastive image model, and produces a similarity score plus a defect breakdown (centering, edges, corners, surface). Collectors get an evidence-backed signal in seconds instead of making a gut call.
+**Gem Hunter automates that evaluation.** Given a PSA 9 cert number, the system fetches the official PSA scans, compares them against a reference set of known PSA 10s using a Siamese / contrastive image model, and produces a similarity score plus a defect breakdown (centering, edges, corners, surface). Collectors get an evidence-backed signal in seconds instead of making a gut call.
 
 ## Target user
 

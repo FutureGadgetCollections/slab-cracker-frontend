@@ -7,7 +7,7 @@ _Placeholder. Replace with real terms before launch._
 
 ## Use of the service
 
-Slab Cracker provides analysis and predictions about graded cards. Predictions are estimates, not guarantees. You are responsible for your own purchase and re-submission decisions.
+Gem Hunter provides analysis and predictions about graded cards. Predictions are estimates, not guarantees. You are responsible for your own purchase and re-submission decisions.
 
 ## No affiliation
 

@@ -1,6 +1,6 @@
 baseURL = "/"
 languageCode = "en-us"
-title = "Slab Cracker"
+title = "Gem Hunter"
 theme = "public"
 
 [params]
